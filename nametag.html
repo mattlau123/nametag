@@ -1,0 +1,4156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NameTag — 7.3-inch E-Ink NameTag Manager</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #14181f;
+      --muted: #5a6270;
+      --line: #d7dce4;
+      --paper: #f5f7fa;
+      --card: #ffffff;
+      --black: #000000;
+      --white: #ffffff;
+      --red: #ff0000;
+      --yellow: #ffff00;
+      --blue: #155eef;
+      --blue-dark: #0f45b7;
+      --status-idle: #6b7483;
+      --status-ok: #0a6a44;
+      --status-ok-line: #9fe3c6;
+      --danger: #a71919;
+      --danger-line: #c93c3c;
+      --field-line: #cbd2df;
+      --field-soft: #fbfcfe;
+      --control-soft: #eef2f7;
+      --control-ink: #2d3645;
+      --focus-ring: rgba(21, 94, 239, 0.16);
+      --blue-soft: #eef3ff;
+      --shadow: 0 12px 32px rgba(15, 23, 42, 0.10);
+      --radius: 8px;
+      --ui-font: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono-font: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--paper);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--ink);
+      font-family: var(--ui-font);
+      background:
+        linear-gradient(180deg, #ffffff 0, #f5f7fa 220px, #eef2f7 100%);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      touch-action: manipulation;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .topbar { animation: fadeUp 0.45s ease both; }
+    .mode-tabs { animation: fadeUp 0.45s ease 0.05s both; }
+    .mode-panel { animation: fadeUp 0.5s ease 0.1s both; }
+
+    .app {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin: 6px 0 18px;
+      padding-bottom: 16px;
+      border-bottom: 2.5px solid var(--blue);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 9px;
+      color: var(--blue);
+      font-family: var(--mono-font);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow .brand-badge {
+      flex: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 4vw, 40px);
+      line-height: 1.03;
+      letter-spacing: -0.5px;
+    }
+
+    .intro {
+      margin: 10px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--status-idle);
+    }
+
+    .status-pill.connected .status-dot {
+      background: var(--status-ok);
+    }
+
+    .status-pill.connected {
+      color: var(--status-ok);
+      border-color: var(--status-ok-line);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 390px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .mode-tabs {
+      display: inline-grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      margin: 0 0 18px;
+      padding: 4px;
+      border: 1px solid var(--field-line);
+      border-radius: 9px;
+      background: var(--control-soft);
+    }
+
+    .tab-btn {
+      min-height: 42px;
+      padding: 9px 18px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--control-ink);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      cursor: pointer;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--ink);
+    }
+
+    .tab-btn.active {
+      background: #ffffff;
+      color: var(--blue);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.10), inset 0 0 0 1px rgba(21, 94, 239, 0.20);
+    }
+
+    .mode-panel.hidden {
+      display: none;
+    }
+
+    .batch-panel {
+      display: grid;
+      gap: 14px;
+    }
+
+    .batch-steps {
+      display: grid;
+      gap: 14px;
+    }
+
+    .step-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .step-num {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-top: 2px;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .step-head h2 {
+      margin: 0;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .toolbar .btn,
+    .toolbar select,
+    .toolbar input[type="text"] {
+      width: auto;
+    }
+
+    .batch-summary {
+      display: grid;
+      gap: 6px;
+      color: var(--control-ink);
+      font-family: var(--mono-font);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .upload-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 8px;
+    }
+
+    .stat-box {
+      padding: 10px 12px;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      background: var(--field-soft);
+    }
+
+    .stat-box strong {
+      display: block;
+      color: var(--ink);
+      font-family: var(--mono-font);
+      font-variant-numeric: tabular-nums;
+      font-size: 23px;
+      font-weight: 800;
+      line-height: 1.05;
+    }
+
+    .stat-box.is-ready strong { color: var(--blue); }
+    .stat-box.is-ok strong { color: var(--status-ok); }
+    .stat-box.is-fail strong { color: var(--danger); }
+
+    .stat-box span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .batch-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--field-line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .batch-table {
+      width: 100%;
+      min-width: 980px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .batch-table th,
+    .batch-table td {
+      padding: 9px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .batch-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--field-soft);
+      color: #242a35;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .batch-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .batch-table input[type="text"],
+    .batch-table select {
+      min-height: 36px;
+      padding: 7px 8px;
+      font-size: 13px;
+    }
+
+    .batch-table .row-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 210px;
+    }
+
+    .batch-table .btn {
+      min-height: 34px;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .badge-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+    }
+
+    .badge-card {
+      display: grid;
+      gap: 8px;
+      padding: 12px;
+      border: 1px solid var(--field-line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .badge-card.is-connected {
+      border-color: var(--status-ok-line);
+      background: #f4fbf7;
+    }
+
+    .badge-card-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-dot {
+      flex: none;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--status-idle);
+    }
+
+    .badge-card.is-connected .badge-dot {
+      background: var(--status-ok);
+      box-shadow: 0 0 0 3px var(--status-ok-line);
+    }
+
+    .badge-card strong {
+      font-family: var(--mono-font);
+      font-size: 13px;
+      letter-spacing: 0.3px;
+    }
+
+    .preview-label {
+      margin: 0 0 8px;
+      color: var(--control-ink);
+      font-family: var(--mono-font);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .preview-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .preview-collapse {
+      min-height: 32px;
+      padding: 5px 10px;
+      font-size: 12px;
+    }
+
+    .preview-placeholder {
+      display: block;
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px dashed var(--field-line);
+      border-radius: var(--radius);
+      background: var(--field-soft);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .paste-dialog {
+      width: min(720px, calc(100% - 28px));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0;
+      color: var(--ink);
+    }
+
+    .paste-dialog::backdrop {
+      background: rgba(15, 23, 42, 0.28);
+    }
+
+    .paste-dialog textarea {
+      width: 100%;
+      min-height: 180px;
+      padding: 10px 12px;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      resize: vertical;
+    }
+
+    .paste-preview {
+      max-height: 220px;
+      overflow: auto;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      background: var(--field-soft);
+      font-size: 13px;
+    }
+
+    .paste-preview div {
+      padding: 7px 9px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .paste-preview div:last-child {
+      border-bottom: 0;
+    }
+
+    .batch-advanced {
+      border: 1px solid var(--field-line);
+      border-radius: 8px;
+      background: var(--field-soft);
+    }
+
+    .batch-advanced summary {
+      padding: 12px 14px;
+      font-weight: 800;
+    }
+
+    .batch-advanced-body {
+      padding: 0 14px 14px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      max-width: 180px;
+      padding: 4px 7px;
+      border: 1px solid var(--field-line);
+      border-radius: 999px;
+      background: var(--field-soft);
+      color: var(--control-ink);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.2;
+      white-space: normal;
+    }
+
+    .status-badge.ok {
+      border-color: var(--status-ok-line);
+      color: var(--status-ok);
+    }
+
+    .status-badge.fail {
+      border-color: var(--danger-line);
+      color: var(--danger);
+    }
+
+    .logo-dropzone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px dashed var(--field-line);
+      border-radius: 6px;
+      background: var(--field-soft);
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .logo-dropzone.dragover {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .org-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    .org-chip img {
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #ffffff;
+      object-fit: contain;
+    }
+
+    .org-chip-none {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: 1px dashed var(--field-line);
+      border-radius: 4px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .org-chip .org-rename {
+      width: 12ch;
+      border: 0;
+      background: transparent;
+      font-weight: 800;
+    }
+
+    .logo-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .field-narrow {
+      max-width: 320px;
+    }
+
+    .template-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .template-card {
+      position: relative;
+      display: grid;
+      gap: 6px;
+      justify-items: center;
+      width: 124px;
+      padding: 10px;
+      border: 1px solid var(--field-line);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--control-ink);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .template-card input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .template-card:has(input:checked) {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 2px var(--focus-ring);
+    }
+
+    .template-card:focus-within {
+      border-color: var(--blue);
+    }
+
+    .template-svg {
+      width: 80px;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--field-soft);
+    }
+
+    .template-svg rect.logo {
+      fill: var(--control-ink);
+    }
+
+    .template-svg line {
+      stroke: var(--muted);
+      stroke-width: 3;
+      stroke-linecap: round;
+    }
+
+    .paste-warning {
+      margin-bottom: 8px;
+    }
+
+    .panel,
+    .preview-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--card);
+      box-shadow: var(--shadow);
+    }
+
+    .preview-panel {
+      position: sticky;
+      top: 16px;
+      padding: 16px;
+    }
+
+    .batch-preview-only {
+      margin-bottom: 16px;
+    }
+
+    .batch-preview-only .main-grid {
+      grid-template-columns: minmax(280px, 900px);
+      justify-content: center;
+    }
+
+    .batch-preview-only .main-grid > .stack {
+      display: none;
+    }
+
+    .batch-preview-only .preview-panel {
+      position: static;
+    }
+
+    .batch-preview-slot .preview-panel {
+      position: static;
+    }
+
+    .batch-preview-slot .actions,
+    .batch-preview-slot .progress-wrap {
+      display: none;
+    }
+
+    .canvas-shell {
+      width: 100%;
+      padding: 18px;
+      border: 1px solid var(--field-line);
+      border-radius: 10px;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.05) 1px, transparent 1.4px) 0 0 / 14px 14px,
+        #eceff4;
+      box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.07);
+      overflow: hidden;
+    }
+
+    #badge-canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 800 / 480;
+      background: #ffffff;
+      border: 1px solid #000000;
+      image-rendering: auto;
+    }
+
+    #badge-canvas.draggable {
+      cursor: grab;
+    }
+
+    #badge-canvas.dragging {
+      cursor: grabbing;
+    }
+
+    .canvas-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-family: var(--mono-font);
+      font-size: 13px;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .actions .wide {
+      grid-column: 1 / -1;
+    }
+
+    .panel {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    details.panel {
+      padding: 0;
+    }
+
+    summary {
+      cursor: pointer;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.2;
+      letter-spacing: -0.2px;
+    }
+
+    .section-head h2::after {
+      content: "";
+      display: block;
+      width: 26px;
+      height: 3px;
+      margin-top: 7px;
+      border-radius: 2px;
+      background: var(--blue);
+    }
+
+    .section-head p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .section-body {
+      padding: 18px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    label,
+    .label {
+      color: #242a35;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--ink);
+      outline: none;
+    }
+
+    ::placeholder {
+      color: var(--muted);
+      opacity: 1;
+    }
+
+    input[type="text"]:focus,
+    select:focus,
+    input[type="file"]:focus,
+    input[type="range"]:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    input[type="file"] {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px;
+      border: 1px dashed #aab4c3;
+      border-radius: 6px;
+      background: var(--field-soft);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    input[type="checkbox"],
+    input[type="radio"] {
+      accent-color: var(--blue);
+    }
+
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 32px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5l3.5 3.5 3.5-3.5' fill='none' stroke='%235a6470' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 11px center;
+      background-size: 12px;
+    }
+
+    .batch-table select {
+      padding-right: 26px;
+      background-position: right 7px center;
+      background-size: 10px;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .range-value {
+      min-width: 54px;
+      padding: 4px 7px;
+      border-radius: 6px;
+      background: var(--control-soft);
+      color: var(--control-ink);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: right;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      background: var(--control-soft);
+    }
+
+    .segmented label {
+      min-height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+      color: #3d4655;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .segmented input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .segmented input:checked + span {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+      background: #ffffff;
+      color: var(--blue);
+    }
+
+    .segmented input:focus-visible + span {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    .switch-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      background: var(--field-soft);
+    }
+
+    .switch-row input {
+      width: 22px;
+      height: 22px;
+      accent-color: var(--blue);
+    }
+
+    .extra-info-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      min-height: 40px;
+      padding: 0;
+      border-radius: 50%;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .extra-info-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .extra-info-row {
+      display: grid;
+      grid-template-columns: 1fr 42px;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .extra-info-row .btn {
+      min-height: 42px;
+      padding: 0;
+      color: var(--danger);
+      font-size: 22px;
+    }
+
+    .btn {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 13px;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      background: #ffffff;
+      color: #172033;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.06s ease;
+    }
+
+    .btn:hover {
+      border-color: #aab4c3;
+      background: #f8fafc;
+    }
+
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #ffffff;
+      box-shadow: 0 1px 0 var(--blue-dark);
+    }
+
+    .btn.primary:hover {
+      border-color: var(--blue-dark);
+      background: var(--blue-dark);
+    }
+
+    .btn.danger {
+      border-color: var(--danger-line);
+      color: var(--danger);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 18px;
+    }
+
+    .info-box {
+      padding: 12px 13px;
+      border: 1px solid var(--field-line);
+      border-radius: 6px;
+      background: var(--field-soft);
+      color: var(--control-ink);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .do-first {
+      margin: 0 0 12px;
+      padding: 9px 13px;
+      border-left: 3px solid var(--blue);
+      border-radius: 0 6px 6px 0;
+      background: var(--blue-soft);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .do-first strong {
+      font-weight: 800;
+    }
+
+    .swatches {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: 26px;
+      height: 26px;
+      border: 1px solid #000000;
+      border-radius: 4px;
+    }
+
+    .swatch.white {
+      background: #ffffff;
+    }
+
+    .swatch.black {
+      background: #000000;
+    }
+
+    .swatch.red {
+      background: #ff0000;
+    }
+
+    .swatch.yellow {
+      background: #ffff00;
+    }
+
+    .progress-wrap {
+      margin-top: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e5e9f0;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 100%;
+      background: var(--blue);
+      transform: scaleX(0);
+      transform-origin: left center;
+      transition: transform 160ms ease-out;
+    }
+
+    .progress-text {
+      color: var(--muted);
+      font-family: var(--mono-font);
+      font-size: 12px;
+    }
+
+    .device-line {
+      color: var(--control-ink);
+      font-family: var(--mono-font);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 20;
+      width: min(560px, calc(100% - 32px));
+      transform: translateX(-50%);
+      padding: 12px 14px;
+      border-radius: 6px;
+      background: #111827;
+      color: #ffffff;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .upload-bar {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      width: min(520px, calc(100% - 28px));
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      z-index: 50;
+    }
+
+    .upload-bar-label {
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .upload-bar-track {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--control-soft);
+    }
+
+    .upload-bar-fill {
+      width: 0;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--blue);
+      transition: width 0.2s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .upload-bar-fill {
+        transition: none;
+      }
+    }
+
+    .toast.error {
+      background: var(--danger);
+    }
+
+    .toast.success {
+      background: var(--status-ok);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    details.panel > summary.section-head {
+      cursor: pointer;
+    }
+
+    .summary-action {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    details[open] .summary-action {
+      color: var(--blue);
+    }
+
+    summary:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: -4px;
+    }
+
+    @media (max-width: 960px) {
+      .topbar,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .preview-panel {
+        position: static;
+        order: -1;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .app {
+        padding: 12px;
+      }
+
+      .section-head,
+      .section-body {
+        padding: 14px;
+      }
+
+      .grid-2,
+      .actions {
+        grid-template-columns: 1fr;
+      }
+
+      .upload-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .actions .wide {
+        grid-column: auto;
+      }
+
+      .topbar {
+        margin-top: 0;
+      }
+
+      .preview-panel {
+        order: 2;
+      }
+
+      .main-grid > .stack {
+        display: contents;
+      }
+
+      .main-grid > .stack > .panel:nth-child(1) {
+        order: 1;
+      }
+
+      .main-grid > .stack > .panel:nth-child(2) {
+        order: 3;
+      }
+
+      .main-grid > .stack > .panel:nth-child(3) {
+        order: 4;
+      }
+
+      .batch-table-wrap {
+        overflow: visible;
+        border: 0;
+        background: transparent;
+      }
+
+      .batch-table,
+      .batch-table thead,
+      .batch-table tbody,
+      .batch-table tr,
+      .batch-table th,
+      .batch-table td {
+        display: block;
+        width: 100%;
+        min-width: 0;
+      }
+
+      .batch-table thead {
+        display: none;
+      }
+
+      .batch-table tr {
+        margin-bottom: 10px;
+        border: 1px solid var(--field-line);
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .batch-table td {
+        border-bottom: 0;
+      }
+
+      .batch-table td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .progress-bar {
+        transition: none;
+      }
+
+      .btn:active {
+        transform: none;
+      }
+
+      .topbar,
+      .mode-tabs,
+      .mode-panel {
+        animation: none;
+      }
+
+      .btn,
+      .tab-btn {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">
+          <svg class="brand-badge" width="22" height="16" viewBox="0 0 22 16" aria-hidden="true">
+            <rect x="0.7" y="0.7" width="20.6" height="14.6" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+            <rect x="3.4" y="3.6" width="6" height="3" rx="1" fill="currentColor"></rect>
+            <line x1="3.4" y1="9.6" x2="18.2" y2="9.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"></line>
+            <line x1="3.4" y1="12.1" x2="14" y2="12.1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"></line>
+          </svg>
+          <span>NameTag · Operator Console</span>
+        </p>
+        <h1>NameTag Manager</h1>
+        <p class="intro">
+          Make name tags and send them to the e-ink displays over Bluetooth.
+          Choose <strong>Single NameTag</strong> for one tag, or <strong>Batch NameTags</strong> for many at once.
+          Works offline — nothing leaves this device. Best on Chrome (computer or Android).
+        </p>
+      </div>
+      <div id="connection-status" class="status-pill" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="connection-label">Not connected</span>
+      </div>
+    </header>
+
+    <nav class="mode-tabs" aria-label="NameTag manager mode">
+      <button class="tab-btn active" id="single-tab" type="button" data-mode="single">Single NameTag</button>
+      <button class="tab-btn" id="batch-tab" type="button" data-mode="batch">Batch NameTags</button>
+    </nav>
+
+    <section class="mode-panel" id="single-panel">
+    <div class="main-grid">
+      <div id="single-preview-anchor" hidden></div>
+      <section class="preview-panel" aria-label="Badge preview">
+        <div class="preview-head">
+          <div class="preview-label" id="preview-label">Previewing: Single NameTag</div>
+          <button type="button" class="btn preview-collapse hidden" id="preview-collapse">Collapse</button>
+        </div>
+        <div class="canvas-shell">
+          <canvas id="badge-canvas" width="800" height="480"></canvas>
+        </div>
+        <div class="canvas-meta">
+          <span>Canvas: 800 x 480</span>
+          <span id="payload-size">Four-color payload: pending</span>
+        </div>
+
+        <p class="do-first">Before connecting: <strong>plug in the battery</strong> and <strong>press the reset button</strong> on the display.</p>
+        <div class="actions">
+          <button class="btn primary" id="connect-bluetooth" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l5 5-3.8 3.8L17 14.6l-5 5V13l-3.3 3.3-1.4-1.4 4.9-4.9-4.9-4.9 1.4-1.4L12 7zm2.2 5L14 6.8v.4zm-.2 10.2l.2-.2-.2-.2z" fill="currentColor"></path></svg>
+            Connect Bluetooth
+          </button>
+          <button class="btn primary" id="upload-display" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l6 6h-4v6h-4V9H6zM5 19h14v2H5z" fill="currentColor"></path></svg>
+            Upload to NameTag
+          </button>
+          <button class="btn" id="generate-preview" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM7 8v8h10V8z" fill="currentColor"></path></svg>
+            Generate Preview
+          </button>
+          <button class="btn" id="download-png" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v10l3-3 1.4 1.4L12 16.8l-5.4-5.4L8 10l3 3zM5 19h14v2H5z" fill="currentColor"></path></svg>
+            Download PNG
+          </button>
+          <button class="btn danger wide" id="reset-form" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5a7 7 0 1 1-6.3 4H3l3.8-4L10.6 9H7.9A5 5 0 1 0 12 7z" fill="currentColor"></path></svg>
+            Reset
+          </button>
+        </div>
+
+        <div class="progress-wrap" aria-live="polite">
+          <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="progress-bar"></div></div>
+          <div class="device-line" id="device-label">Target NameTag: not connected</div>
+          <div class="progress-text" id="progress-text">Ready.</div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>NameTag Content</h2>
+              <p>Type the front-facing name tag text. Long text is wrapped or fitted automatically.</p>
+            </div>
+          </div>
+          <div class="section-body stack">
+            <div class="field">
+              <label for="name-input">Name</label>
+              <input id="name-input" type="text" autocomplete="name" value="Your Name" placeholder="Your name">
+            </div>
+            <div class="field">
+              <label for="title-input">Title</label>
+              <input id="title-input" type="text" value="Your Posting" placeholder="Job title or role">
+            </div>
+            <div class="field">
+              <label for="org-input">Organisation / Company</label>
+              <input id="org-input" type="text" value="Your Organisation" placeholder="Optional organisation">
+            </div>
+            <div class="field">
+              <div class="extra-info-head">
+                <label for="add-extra-info">Extra info</label>
+                <button class="btn icon-btn" id="add-extra-info" type="button" aria-label="Add extra info">+</button>
+              </div>
+              <div class="extra-info-list" id="extra-info-list"></div>
+            </div>
+            <div class="field">
+              <label for="logo-input">Logo image</label>
+              <input id="logo-input" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/*">
+              <span class="hint">PNG, JPG, SVG, or another browser-supported image.</span>
+            </div>
+            <button class="btn" id="clear-logo" type="button">Clear Logo</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Layout</h2>
+              <p>Pick a badge structure, then fine tune position and size for the display.</p>
+            </div>
+          </div>
+          <div class="section-body stack">
+            <div class="grid-2">
+              <div class="field">
+                <label for="layout-style">NameTag layout</label>
+                <select id="layout-style">
+                  <option value="logoTop">Logo top, text below</option>
+                  <option value="logoLeft">Logo left, text right</option>
+                  <option value="logoTopLeft">Logo top-left, text center</option>
+                  <option value="textOnly">Text only</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="theme-select">Mode</label>
+                <select id="theme-select">
+                  <option value="minimal">Minimal</option>
+                  <option value="freeStyle">Free-style drag</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="label">Horizontal alignment</span>
+              <div class="segmented" role="radiogroup" aria-label="Horizontal alignment">
+                <label><input type="radio" name="align" value="left"><span>Left</span></label>
+                <label><input type="radio" name="align" value="center" checked><span>Center</span></label>
+                <label><input type="radio" name="align" value="right"><span>Right</span></label>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="field">
+                <div class="range-row">
+                  <label for="logo-size">Logo size</label>
+                  <span class="range-value" id="logo-size-value">116 px</span>
+                </div>
+                <input id="logo-size" type="range" min="40" max="220" step="2" value="116">
+              </div>
+              <div class="field">
+                <div class="range-row">
+                  <label for="name-size">Name font size</label>
+                  <span class="range-value" id="name-size-value">100 px</span>
+                </div>
+                <input id="name-size" type="range" min="30" max="120" step="1" value="100">
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="field">
+                <div class="range-row">
+                  <label for="title-size">Title font size</label>
+                  <span class="range-value" id="title-size-value">44 px</span>
+                </div>
+                <input id="title-size" type="range" min="16" max="56" step="1" value="44">
+              </div>
+              <div class="field">
+                <div class="range-row">
+                  <label for="line-spacing">Line spacing</label>
+                  <span class="range-value" id="line-spacing-value">12 px</span>
+                </div>
+                <input id="line-spacing" type="range" min="4" max="28" step="1" value="12">
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="field">
+                <div class="range-row">
+                  <label for="text-x">Horizontal position</label>
+                  <span class="range-value" id="text-x-value">50%</span>
+                </div>
+                <input id="text-x" type="range" min="40" max="760" step="1" value="400">
+              </div>
+              <div class="field">
+                <div class="range-row">
+                  <label for="text-y">Vertical position</label>
+                  <span class="range-value" id="text-y-value">47%</span>
+                </div>
+                <input id="text-y" type="range" min="40" max="420" step="1" value="218">
+              </div>
+            </div>
+
+            <label class="switch-row" for="border-toggle">
+              <span>
+                <span class="label">Border / frame</span><br>
+                <span class="hint">Adds a crisp black frame around the 800 x 480 output.</span>
+              </span>
+              <input id="border-toggle" type="checkbox" checked>
+            </label>
+          </div>
+        </section>
+
+        <details class="panel advanced-panel">
+          <summary class="section-head">
+            <div>
+              <h2>Advanced Display Output</h2>
+              <p>Default: four-color e-paper, dithered artwork, 512-byte BLE chunks.</p>
+            </div>
+            <span class="summary-action">Settings</span>
+          </summary>
+          <div class="section-body stack">
+            <div class="info-box">
+              Default upload mode is four-color. The generated canvas is quantized to this palette before PNG download and before BLE upload.
+            </div>
+            <div class="swatches" aria-label="Four color display palette">
+              <span class="swatch black" title="Black"></span>
+              <span class="swatch white" title="White"></span>
+              <span class="swatch red" title="Red"></span>
+              <span class="swatch yellow" title="Yellow"></span>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="display-mode">Display color mode</label>
+                <select id="display-mode">
+                  <option value="fourColor" selected>Four-color: black, white, red, yellow</option>
+                  <option value="blackWhiteColor">Black and white only</option>
+                  <option value="threeColor">Black, white, red</option>
+                  <option value="sixColor">Six-color original mode</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="processing-mode">Image processing</label>
+                <select id="processing-mode">
+                  <option value="dither" selected>Dither photos and logos</option>
+                  <option value="crisp">Crisp text threshold</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="chunk-size">BLE chunk size</label>
+              <select id="chunk-size">
+                <option value="512" selected>512 bytes, original default</option>
+                <option value="244">244 bytes, mobile conservative</option>
+                <option value="128">128 bytes, slow fallback</option>
+              </select>
+              <span class="hint">Use the original 512-byte chunks unless your browser or display rejects writes.</span>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+    </section>
+
+    <section class="mode-panel batch-panel hidden" id="batch-panel" aria-label="Batch NameTags">
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>Batch NameTags</h2>
+            <p>Make many tags at once. Just follow steps 1 to 4 below.</p>
+          </div>
+        </div>
+        <div class="section-body batch-steps">
+          <div class="info-box">
+            Use Chrome on a computer or an Android phone. The first time you connect a display, tap <strong>Allow</strong> when the browser asks to use Bluetooth.
+          </div>
+          <div class="field">
+            <span class="label">Badge template (applies to everyone)</span>
+            <div class="template-cards" id="template-cards" role="radiogroup" aria-label="Badge template">
+              <label class="template-card">
+                <input type="radio" name="batch-template" value="logoTop" checked>
+                <svg class="template-svg" viewBox="0 0 80 48" aria-hidden="true">
+                  <rect class="logo" x="34" y="6" width="12" height="12" rx="2"></rect>
+                  <line x1="22" y1="26" x2="58" y2="26"></line>
+                  <line x1="26" y1="33" x2="54" y2="33"></line>
+                  <line x1="29" y1="40" x2="51" y2="40"></line>
+                </svg>
+                <span>Logo top</span>
+              </label>
+              <label class="template-card">
+                <input type="radio" name="batch-template" value="logoLeft">
+                <svg class="template-svg" viewBox="0 0 80 48" aria-hidden="true">
+                  <rect class="logo" x="8" y="18" width="12" height="12" rx="2"></rect>
+                  <line x1="28" y1="18" x2="68" y2="18"></line>
+                  <line x1="28" y1="25" x2="62" y2="25"></line>
+                  <line x1="28" y1="32" x2="66" y2="32"></line>
+                </svg>
+                <span>Logo left</span>
+              </label>
+              <label class="template-card">
+                <input type="radio" name="batch-template" value="logoTopLeft">
+                <svg class="template-svg" viewBox="0 0 80 48" aria-hidden="true">
+                  <rect class="logo" x="8" y="6" width="12" height="12" rx="2"></rect>
+                  <line x1="22" y1="26" x2="58" y2="26"></line>
+                  <line x1="26" y1="33" x2="54" y2="33"></line>
+                  <line x1="29" y1="40" x2="51" y2="40"></line>
+                </svg>
+                <span>Logo top-left</span>
+              </label>
+            </div>
+          </div>
+
+          <section class="stack" aria-label="Organisations">
+            <div class="step-head">
+              <span class="step-num">1</span>
+              <div>
+                <h2>Organisations</h2>
+                <p class="hint">Add each company or team once, with a logo if you have one. People choose their organisation in Step 2. No logo = clean centered text.</p>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label for="org-name-input">Organisation name</label>
+                <input id="org-name-input" type="text" placeholder="e.g. Acme Robotics">
+              </div>
+              <div class="field">
+                <label for="org-dropzone">Logo (optional)</label>
+                <div class="logo-dropzone" id="org-dropzone" tabindex="0" role="button" aria-label="Add a logo image by dropping, pasting, or clicking">
+                  Drag &amp; drop, paste, or click to add a logo
+                  <input class="hidden" id="org-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/*">
+                </div>
+              </div>
+            </div>
+            <div class="toolbar">
+              <button class="btn primary" id="add-org" type="button">Add organisation</button>
+            </div>
+            <div class="logo-list" id="org-list"></div>
+          </section>
+
+          <section class="stack" aria-label="People">
+            <div class="step-head">
+              <span class="step-num">2</span>
+              <div>
+                <h2>People</h2>
+                <p class="hint">Add the people who need a tag. Use <strong>Paste Names</strong> to add many quickly. Pick each person’s organisation from Step 1.</p>
+              </div>
+            </div>
+            <div class="toolbar">
+              <button class="btn primary" id="add-person" type="button">+ Add Person</button>
+              <button class="btn" id="paste-names" type="button">Paste Names</button>
+              <label class="field" for="batch-filter">
+                <span>Show</span>
+                <select id="batch-filter">
+                  <option value="all">All people</option>
+                  <option value="not_paired">No NameTag connected</option>
+                  <option value="connected">Connected</option>
+                  <option value="waiting">Waiting</option>
+                  <option value="done">Uploaded</option>
+                  <option value="failed">Failed</option>
+                </select>
+              </label>
+            </div>
+            <div class="batch-table-wrap">
+              <table class="batch-table">
+                <thead>
+                  <tr>
+                    <th><input id="batch-select-all" type="checkbox" checked aria-label="Select all people"></th>
+                    <th>Name</th>
+                    <th>Title / Posting</th>
+                    <th>Organisation</th>
+                    <th>Assigned NameTag</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="batch-table-body">
+                  <tr><td colspan="7">No people yet. Add organisations above, then add people here.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="batch-preview-slot" id="batch-preview-slot">
+            <button type="button" class="preview-placeholder hidden" id="preview-placeholder">
+              <span aria-hidden="true">▸</span> Tap "Preview" on any person to see their badge here
+            </button>
+          </div>
+
+          <section class="stack" aria-label="Assign NameTags">
+            <div class="step-head">
+              <span class="step-num">3</span>
+              <div>
+                <h2>Assign NameTags</h2>
+                <p class="hint">Connect each display once. A display becomes ready when it is connected and given to a person.</p>
+              </div>
+            </div>
+            <p class="do-first">On each display: <strong>plug in the battery</strong>, then <strong>press the reset button</strong> — now tap <strong>Find / Add NameTag</strong> and pick it from the list.</p>
+            <div class="toolbar">
+              <button class="btn primary" id="add-batch-badge" type="button">Find / Add NameTag</button>
+              <button class="btn" id="reconnect-badges" type="button">Reconnect NameTags</button>
+            </div>
+            <div class="badge-list" id="badge-assignment-list"></div>
+          </section>
+
+          <section class="stack" aria-label="Upload">
+            <div class="step-head">
+              <span class="step-num">4</span>
+              <div>
+                <h2>Preview & Upload</h2>
+                <p class="hint">Tap <strong>Preview</strong> on a person to check their tag. Then tap <strong>Upload All Ready</strong> to send to every connected display — a bar at the bottom shows the progress.</p>
+              </div>
+            </div>
+            <div class="upload-stats">
+              <div class="stat-box is-ready"><strong id="ready-count">0</strong><span>Ready</span></div>
+              <div class="stat-box"><strong id="not-connected-count">0</strong><span>Not connected</span></div>
+              <div class="stat-box is-ok"><strong id="uploaded-count">0</strong><span>Uploaded</span></div>
+              <div class="stat-box is-fail"><strong id="failed-count">0</strong><span>Failed</span></div>
+            </div>
+            <div class="toolbar">
+              <button class="btn primary" id="upload-all-ready" type="button">Upload All Ready</button>
+              <button class="btn" id="preview-selected" type="button">Preview Selected</button>
+              <button class="btn" id="upload-selected" type="button">Upload Selected</button>
+              <button class="btn" id="retry-failed" type="button">Retry Failed</button>
+            </div>
+            <div class="batch-summary" aria-live="polite">
+              <div id="batch-progress">Progress: 0 / 0 uploaded</div>
+              <div id="batch-current">Current: idle</div>
+            </div>
+          </section>
+
+          <details class="batch-advanced">
+            <summary>Advanced / CSV tools</summary>
+            <div class="batch-advanced-body stack">
+              <p class="hint">CSV is optional. Use it only if you already have a spreadsheet.</p>
+              <input class="hidden" id="batch-csv-input" type="file" accept=".csv,text/csv">
+              <div class="toolbar">
+                <button class="btn" id="import-csv" type="button">Import CSV</button>
+                <button class="btn" id="export-csv" type="button">Export People CSV</button>
+                <button class="btn" id="download-template" type="button">Download NameTag CSV Template</button>
+                <button class="btn" id="export-status" type="button">Download Upload Report</button>
+                <button class="btn danger" id="clear-batch" type="button">Clear Batch</button>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+    </section>
+
+    <dialog class="paste-dialog" id="paste-dialog">
+      <div class="section-head">
+        <div>
+          <h2>Paste Names</h2>
+          <p>Paste one person per line. Use “Name | Title | Organisation”. Tabs and commas also work. Col 4 = NameTag name (optional). Organisation links only if it matches one you added above.</p>
+        </div>
+      </div>
+      <div class="section-body stack">
+        <textarea id="paste-input" placeholder="Ernest WONG | CSP CCB&#10;LAU KM | Researcher - Digital Manufacturing | University College Dublin"></textarea>
+        <div class="paste-preview" id="paste-preview"></div>
+        <div class="toolbar">
+          <button class="btn primary" id="confirm-paste" type="button">Add people</button>
+          <button class="btn" id="cancel-paste" type="button">Cancel</button>
+        </div>
+      </div>
+    </dialog>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <div id="upload-bar" class="upload-bar hidden" role="status" aria-live="polite">
+    <div class="upload-bar-label" id="upload-bar-label">Uploading…</div>
+    <div class="upload-bar-track"><div class="upload-bar-fill" id="upload-bar-fill"></div></div>
+  </div>
+
+  <script>
+    const CANVAS_WIDTH = 800;
+    const CANVAS_HEIGHT = 480;
+    const SAFE_MARGIN = 40;
+    const BLE_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+    const BLE_CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+    const COLORS = {
+      black: { r: 0, g: 0, b: 0 },
+      white: { r: 255, g: 255, b: 255 },
+      red: { r: 255, g: 0, b: 0 },
+      yellow: { r: 255, g: 255, b: 0 },
+      green: { r: 0, g: 255, b: 0 },
+      blue: { r: 0, g: 0, b: 255 }
+    };
+
+    const els = {
+      canvas: document.getElementById('badge-canvas'),
+      nameInput: document.getElementById('name-input'),
+      titleInput: document.getElementById('title-input'),
+      orgInput: document.getElementById('org-input'),
+      logoInput: document.getElementById('logo-input'),
+      addExtraInfo: document.getElementById('add-extra-info'),
+      extraInfoList: document.getElementById('extra-info-list'),
+      clearLogo: document.getElementById('clear-logo'),
+      layoutStyle: document.getElementById('layout-style'),
+      themeSelect: document.getElementById('theme-select'),
+      logoSize: document.getElementById('logo-size'),
+      nameSize: document.getElementById('name-size'),
+      titleSize: document.getElementById('title-size'),
+      lineSpacing: document.getElementById('line-spacing'),
+      textX: document.getElementById('text-x'),
+      textY: document.getElementById('text-y'),
+      borderToggle: document.getElementById('border-toggle'),
+      displayMode: document.getElementById('display-mode'),
+      processingMode: document.getElementById('processing-mode'),
+      chunkSize: document.getElementById('chunk-size'),
+      generatePreview: document.getElementById('generate-preview'),
+      downloadPng: document.getElementById('download-png'),
+      connectBluetooth: document.getElementById('connect-bluetooth'),
+      uploadDisplay: document.getElementById('upload-display'),
+      resetForm: document.getElementById('reset-form'),
+      payloadSize: document.getElementById('payload-size'),
+      connectionStatus: document.getElementById('connection-status'),
+      connectionLabel: document.getElementById('connection-label'),
+      previewPanel: document.querySelector('.preview-panel'),
+      singlePreviewAnchor: document.getElementById('single-preview-anchor'),
+      batchPreviewSlot: document.getElementById('batch-preview-slot'),
+      previewLabel: document.getElementById('preview-label'),
+      previewPlaceholder: document.getElementById('preview-placeholder'),
+      previewCollapse: document.getElementById('preview-collapse'),
+      deviceLabel: document.getElementById('device-label'),
+      progressBar: document.getElementById('progress-bar'),
+      progressText: document.getElementById('progress-text'),
+      toast: document.getElementById('toast'),
+      uploadBar: document.getElementById('upload-bar'),
+      uploadBarLabel: document.getElementById('upload-bar-label'),
+      uploadBarFill: document.getElementById('upload-bar-fill'),
+      singleTab: document.getElementById('single-tab'),
+      batchTab: document.getElementById('batch-tab'),
+      singlePanel: document.getElementById('single-panel'),
+      batchPanel: document.getElementById('batch-panel'),
+      batchCsvInput: document.getElementById('batch-csv-input'),
+      importCsv: document.getElementById('import-csv'),
+      downloadTemplate: document.getElementById('download-template'),
+      addBatchBadge: document.getElementById('add-batch-badge'),
+      reconnectBadges: document.getElementById('reconnect-badges'),
+      addPerson: document.getElementById('add-person'),
+      pasteNames: document.getElementById('paste-names'),
+      exportCsv: document.getElementById('export-csv'),
+      previewSelected: document.getElementById('preview-selected'),
+      uploadSelected: document.getElementById('upload-selected'),
+      uploadAllReady: document.getElementById('upload-all-ready'),
+      retryFailed: document.getElementById('retry-failed'),
+      exportStatus: document.getElementById('export-status'),
+      clearBatch: document.getElementById('clear-batch'),
+      batchFilter: document.getElementById('batch-filter'),
+      batchSelectAll: document.getElementById('batch-select-all'),
+      batchProgress: document.getElementById('batch-progress'),
+      batchCurrent: document.getElementById('batch-current'),
+      templateCards: document.getElementById('template-cards'),
+      batchTableBody: document.getElementById('batch-table-body'),
+      badgeAssignmentList: document.getElementById('badge-assignment-list'),
+      readyCount: document.getElementById('ready-count'),
+      notConnectedCount: document.getElementById('not-connected-count'),
+      uploadedCount: document.getElementById('uploaded-count'),
+      failedCount: document.getElementById('failed-count'),
+      pasteDialog: document.getElementById('paste-dialog'),
+      pasteInput: document.getElementById('paste-input'),
+      pastePreview: document.getElementById('paste-preview'),
+      confirmPaste: document.getElementById('confirm-paste'),
+      cancelPaste: document.getElementById('cancel-paste'),
+      orgNameInput: document.getElementById('org-name-input'),
+      orgFile: document.getElementById('org-file'),
+      orgDropzone: document.getElementById('org-dropzone'),
+      addOrg: document.getElementById('add-org'),
+      orgList: document.getElementById('org-list')
+    };
+
+    const ctx = els.canvas.getContext('2d', { willReadFrequently: true });
+    const workCanvas = document.createElement('canvas');
+    const workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
+    workCanvas.width = CANVAS_WIDTH;
+    workCanvas.height = CANVAS_HEIGHT;
+
+    let logoImage = null;
+    let connectedDevice = null;
+    let connectedCharacteristic = null;
+    let renderPending = false;
+    let toastTimer = null;
+    let extraInfoCount = 0;
+    let freeLogoPosition = null;
+    let lastRenderRects = { logoRect: null, textRect: null };
+    let dragState = null;
+    let batchUploadRunning = false;
+    let batchPreviewExpanded = false;
+
+    const BATCH_ROWS_KEY = 'nametag.batch.people';
+    const LEGACY_BATCH_ROWS_KEY = 'einkBadge.batch.people';
+    const LEGACY_BATCH_ROWS_KEY_2 = 'einkBadge.batch.rows';
+    const BATCH_LOGOS_KEY = 'nametag.batch.logoGroups';
+    const LEGACY_BATCH_LOGOS_KEY = 'einkBadge.batch.logoGroups';
+    const BATCH_SETTINGS_KEY = 'nametag.batch.uiSettings';
+    const LEGACY_BATCH_SETTINGS_KEY = 'einkBadge.batch.uiSettings';
+    const BATCH_ASSIGNMENTS_KEY = 'nametag.batch.assignments';
+    const LEGACY_BATCH_ASSIGNMENTS_KEY = 'einkBadge.batch.assignments';
+
+    const connectedBadges = new Map();
+    const batchState = {
+      rows: [],
+      template: 'logoTop',
+      logoGroups: {},
+      devices: connectedBadges
+    };
+
+    const initialValues = {
+      name: els.nameInput.value,
+      title: els.titleInput.value,
+      org: els.orgInput.value,
+      layout: els.layoutStyle.value,
+      theme: els.themeSelect.value,
+      logoSize: els.logoSize.value,
+      nameSize: els.nameSize.value,
+      titleSize: els.titleSize.value,
+      lineSpacing: els.lineSpacing.value,
+      textX: els.textX.value,
+      textY: els.textY.value,
+      border: els.borderToggle.checked,
+      displayMode: els.displayMode.value,
+      processingMode: els.processingMode.value,
+      chunkSize: els.chunkSize.value,
+      align: getAlignment()
+    };
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function getAlignment() {
+      const checked = document.querySelector('input[name="align"]:checked');
+      return checked ? checked.value : 'center';
+    }
+
+    function setAlignment(value) {
+      const radio = document.querySelector(`input[name="align"][value="${value}"]`);
+      if (radio) radio.checked = true;
+    }
+
+    function showToast(message, type = '') {
+      clearTimeout(toastTimer);
+      els.toast.textContent = message;
+      els.toast.className = `toast ${type}`.trim();
+      toastTimer = setTimeout(() => els.toast.classList.add('hidden'), 4200);
+    }
+
+    function createId() {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+      return `row-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function normalizeDeviceName(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function getBadgeNames() {
+      return Array.from({ length: 20 }, (_, index) => `BADGE${String(index + 1).padStart(4, '0')}`);
+    }
+
+    function getAssignedBadge(row) {
+      return normalizeDeviceName(row.assignedBadge || row.deviceName || '');
+    }
+
+    function setAssignedBadge(row, badgeName) {
+      const normalized = normalizeDeviceName(badgeName);
+      row.assignedBadge = normalized;
+      row.deviceName = normalized;
+      row.bluetoothStatus = normalized && connectedBadges.has(normalized) ? 'connected' : 'not_connected';
+    }
+
+    function nextAvailableBadge() {
+      const used = new Set(batchState.rows.map(getAssignedBadge).filter(Boolean));
+      return getBadgeNames().find((badge) => !used.has(badge)) || '';
+    }
+
+    function statusText(value) {
+      return String(value || '').replace(/_/g, ' ');
+    }
+
+    function statusClass(value) {
+      if (value === 'connected' || value === 'done' || value === 'permission_granted') return 'ok';
+      if (value === 'failed' || value === 'skipped' || value === 'error' || value === 'unavailable') return 'fail';
+      return '';
+    }
+
+    function downloadTextFile(filename, text, type = 'text/plain') {
+      const blob = new Blob([text], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function setProgress(percent, text) {
+      els.progressBar.style.transform = `scaleX(${clamp(percent, 0, 100) / 100})`;
+      els.progressText.textContent = text;
+    }
+
+    function rangePercent(input) {
+      const min = Number(input.min);
+      const max = Number(input.max);
+      const value = Number(input.value);
+      return `${Math.round(((value - min) / (max - min)) * 100)}%`;
+    }
+
+    function updateRangeLabels() {
+      document.getElementById('logo-size-value').textContent = `${els.logoSize.value} px`;
+      document.getElementById('name-size-value').textContent = `${els.nameSize.value} px`;
+      document.getElementById('title-size-value').textContent = `${els.titleSize.value} px`;
+      document.getElementById('line-spacing-value').textContent = `${els.lineSpacing.value} px`;
+      document.getElementById('text-x-value').textContent = rangePercent(els.textX);
+      document.getElementById('text-y-value').textContent = rangePercent(els.textY);
+    }
+
+    function queueRender() {
+      updateRangeLabels();
+      if (renderPending) return;
+      renderPending = true;
+      requestAnimationFrame(() => {
+        renderPending = false;
+        renderBadge();
+      });
+    }
+
+    function getPalette(mode) {
+      if (mode === 'sixColor') return [COLORS.black, COLORS.white, COLORS.red, COLORS.yellow, COLORS.green, COLORS.blue];
+      if (mode === 'threeColor') return [COLORS.black, COLORS.white, COLORS.red];
+      if (mode === 'blackWhiteColor') return [COLORS.black, COLORS.white];
+      return [COLORS.black, COLORS.white, COLORS.red, COLORS.yellow];
+    }
+
+    function colorDistance(a, b) {
+      const dr = a.r - b.r;
+      const dg = a.g - b.g;
+      const db = a.b - b.b;
+      return dr * dr + dg * dg + db * db;
+    }
+
+    function nearestPaletteColor(r, g, b, palette) {
+      let closest = palette[0];
+      let best = Infinity;
+      for (const color of palette) {
+        const distance = colorDistance({ r, g, b }, color);
+        if (distance < best) {
+          best = distance;
+          closest = color;
+        }
+      }
+      return closest;
+    }
+
+    function getState() {
+      return {
+        name: els.nameInput.value.trim() || 'Your Name',
+        title: els.titleInput.value.trim(),
+        org: els.orgInput.value.trim(),
+        extraInfo: Array.from(els.extraInfoList.querySelectorAll('input'))
+          .map((input) => input.value.trim())
+          .filter(Boolean),
+        layout: els.layoutStyle.value,
+        theme: els.themeSelect.value,
+        align: getAlignment(),
+        logoSize: Number(els.logoSize.value),
+        nameSize: Number(els.nameSize.value),
+        titleSize: Number(els.titleSize.value),
+        lineSpacing: Number(els.lineSpacing.value),
+        textX: Number(els.textX.value),
+        textY: Number(els.textY.value),
+        showBorder: els.borderToggle.checked,
+        displayMode: els.displayMode.value,
+        processingMode: els.processingMode.value
+      };
+    }
+
+    function fillRect(ctxToUse, x, y, width, height, color) {
+      ctxToUse.fillStyle = color;
+      ctxToUse.fillRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
+    }
+
+    function strokeRect(ctxToUse, x, y, width, height, color, lineWidth = 2) {
+      ctxToUse.save();
+      ctxToUse.strokeStyle = color;
+      ctxToUse.lineWidth = lineWidth;
+      ctxToUse.strokeRect(Math.round(x) + lineWidth / 2, Math.round(y) + lineWidth / 2, Math.round(width) - lineWidth, Math.round(height) - lineWidth);
+      ctxToUse.restore();
+    }
+
+    function drawTheme(ctxToUse, state) {
+      fillRect(ctxToUse, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, '#ffffff');
+      fillRect(ctxToUse, SAFE_MARGIN, CANVAS_HEIGHT - 54, CANVAS_WIDTH - SAFE_MARGIN * 2, 4, '#ff0000');
+
+      if (state.showBorder) {
+        strokeRect(ctxToUse, 10, 10, CANVAS_WIDTH - 20, CANVAS_HEIGHT - 20, '#000000', 3);
+      }
+    }
+
+    function makeImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('The selected image could not be loaded.'));
+          img.src = reader.result;
+        };
+        reader.onerror = () => reject(new Error('The selected file could not be read.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Logo handling: images are loaded as local data URLs and drawn into the
+    // generated badge canvas. No image leaves the browser before BLE upload.
+    async function handleImageUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+
+      try {
+        const img = await makeImageFromFile(file);
+        logoImage = img;
+        showToast('Logo loaded.', 'success');
+        queueRender();
+      } catch (error) {
+        showToast(error.message, 'error');
+      } finally {
+        event.target.value = '';
+      }
+    }
+
+    function addExtraInfoField(value = '', focusField = true) {
+      extraInfoCount += 1;
+      const row = document.createElement('div');
+      row.className = 'extra-info-row';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Department, room, phone, pronouns...';
+      input.value = value;
+      input.setAttribute('aria-label', `Extra info ${extraInfoCount}`);
+
+      const remove = document.createElement('button');
+      remove.className = 'btn';
+      remove.type = 'button';
+      remove.textContent = 'x';
+      remove.setAttribute('aria-label', 'Remove extra info');
+
+      input.addEventListener('input', queueRender);
+      remove.addEventListener('click', () => {
+        row.remove();
+        queueRender();
+      });
+
+      row.append(input, remove);
+      els.extraInfoList.appendChild(row);
+      if (focusField) input.focus();
+      queueRender();
+    }
+
+    function drawContainImage(ctxToUse, img, rect, frame = false) {
+      if (!img || rect.width <= 0 || rect.height <= 0) return;
+
+      ctxToUse.save();
+      fillRect(ctxToUse, rect.x, rect.y, rect.width, rect.height, '#ffffff');
+      const scale = Math.min(rect.width / img.width, rect.height / img.height);
+      const width = img.width * scale;
+      const height = img.height * scale;
+      const x = rect.x + (rect.width - width) / 2;
+      const y = rect.y + (rect.height - height) / 2;
+      ctxToUse.drawImage(img, x, y, width, height);
+      if (frame) strokeRect(ctxToUse, rect.x, rect.y, rect.width, rect.height, '#000000', 2);
+      ctxToUse.restore();
+    }
+
+    function drawLogo(ctxToUse, state, layoutInfo) {
+      if (state.layout === 'textOnly') return;
+
+      const rect = layoutInfo.logoRect;
+      if (!rect) return;
+
+      if (logoImage) {
+        drawContainImage(ctxToUse, logoImage, rect, false);
+        return;
+      }
+
+      ctxToUse.save();
+      fillRect(ctxToUse, rect.x, rect.y, rect.width, rect.height, '#ffffff');
+      strokeRect(ctxToUse, rect.x, rect.y, rect.width, rect.height, '#000000', 2);
+      ctxToUse.fillStyle = '#ff0000';
+      ctxToUse.font = '700 22px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      ctxToUse.textAlign = 'center';
+      ctxToUse.textBaseline = 'middle';
+      ctxToUse.fillText('LOGO', rect.x + rect.width / 2, rect.y + rect.height / 2);
+      ctxToUse.restore();
+    }
+
+    function getLayoutInfo(state) {
+      let logoRect = null;
+      let available = {
+        x: SAFE_MARGIN,
+        y: SAFE_MARGIN,
+        width: CANVAS_WIDTH - SAFE_MARGIN * 2,
+        height: CANVAS_HEIGHT - SAFE_MARGIN * 2
+      };
+
+      if (state.layout === 'logoTop') {
+        const size = state.logoSize;
+        logoRect = {
+          x: clamp(state.textX - size / 2, SAFE_MARGIN, CANVAS_WIDTH - SAFE_MARGIN - size),
+          y: SAFE_MARGIN,
+          width: size,
+          height: size
+        };
+        if (state.theme === 'freeStyle' && freeLogoPosition) {
+          logoRect.x = clamp(freeLogoPosition.x, SAFE_MARGIN, CANVAS_WIDTH - SAFE_MARGIN - size);
+          logoRect.y = clamp(freeLogoPosition.y, SAFE_MARGIN, CANVAS_HEIGHT - SAFE_MARGIN - size);
+        }
+        if (state.theme === 'freeStyle') {
+          available = {
+            x: SAFE_MARGIN,
+            y: SAFE_MARGIN,
+            width: CANVAS_WIDTH - SAFE_MARGIN * 2,
+            height: CANVAS_HEIGHT - SAFE_MARGIN * 2
+          };
+        } else {
+          available.y = Math.max(available.y, logoRect.y + logoRect.height + 22);
+          available.height = CANVAS_HEIGHT - SAFE_MARGIN - available.y;
+        }
+      } else if (state.layout === 'logoLeft') {
+        const size = state.logoSize;
+        logoRect = {
+          x: SAFE_MARGIN,
+          y: clamp((CANVAS_HEIGHT - size) / 2, SAFE_MARGIN, CANVAS_HEIGHT - SAFE_MARGIN - size),
+          width: size,
+          height: size
+        };
+        if (state.theme === 'freeStyle' && freeLogoPosition) {
+          logoRect.x = clamp(freeLogoPosition.x, SAFE_MARGIN, CANVAS_WIDTH - SAFE_MARGIN - size);
+          logoRect.y = clamp(freeLogoPosition.y, SAFE_MARGIN, CANVAS_HEIGHT - SAFE_MARGIN - size);
+        }
+        if (state.theme === 'freeStyle') {
+          available = {
+            x: SAFE_MARGIN,
+            y: SAFE_MARGIN,
+            width: CANVAS_WIDTH - SAFE_MARGIN * 2,
+            height: CANVAS_HEIGHT - SAFE_MARGIN * 2
+          };
+        } else {
+          available.x = logoRect.x + logoRect.width + 38;
+          available.width = CANVAS_WIDTH - available.x - SAFE_MARGIN;
+        }
+      } else if (state.layout === 'logoTopLeft') {
+        const size = state.logoSize;
+        logoRect = {
+          x: SAFE_MARGIN,
+          y: SAFE_MARGIN,
+          width: size,
+          height: size
+        };
+        if (state.theme === 'freeStyle' && freeLogoPosition) {
+          logoRect.x = clamp(freeLogoPosition.x, SAFE_MARGIN, CANVAS_WIDTH - SAFE_MARGIN - size);
+          logoRect.y = clamp(freeLogoPosition.y, SAFE_MARGIN, CANVAS_HEIGHT - SAFE_MARGIN - size);
+        }
+        // Reserve part of the corner logo's height so the vertically-centered
+        // text clears it instead of riding up into the top-left logo.
+        const topInset = Math.round(size * 0.55);
+        available = {
+          x: SAFE_MARGIN,
+          y: SAFE_MARGIN + topInset,
+          width: CANVAS_WIDTH - SAFE_MARGIN * 2,
+          height: CANVAS_HEIGHT - SAFE_MARGIN * 2 - topInset
+        };
+      }
+
+      return {
+        logoRect,
+        available
+      };
+    }
+
+    function resolveTextRect(state, available) {
+      const maxWidth = Math.max(120, available.width);
+      const desiredWidth = Math.min(maxWidth, state.layout === 'logoLeft' ? maxWidth : 680);
+      const anchorX = clamp(state.textX, available.x, available.x + available.width);
+      let x = anchorX - desiredWidth / 2;
+
+      if (state.align === 'left') x = anchorX;
+      if (state.align === 'right') x = anchorX - desiredWidth;
+
+      x = clamp(x, available.x, available.x + available.width - desiredWidth);
+      const centersTextVertically = state.layout === 'logoLeft' || state.layout === 'logoTopLeft' || state.layout === 'logoTop';
+      const y = centersTextVertically && state.theme !== 'freeStyle'
+        ? available.y
+        : clamp(state.textY, available.y, available.y + available.height - 34);
+
+      return {
+        x,
+        y,
+        width: desiredWidth,
+        height: centersTextVertically && state.theme !== 'freeStyle'
+          ? available.height
+          : Math.max(34, available.y + available.height - y)
+      };
+    }
+
+    function fontSpec(size, weight) {
+      return `${weight} ${Math.round(size)}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+    }
+
+    function ellipsizeToWidth(ctxToUse, text, maxWidth) {
+      if (!text) return '';
+      if (ctxToUse.measureText(text).width <= maxWidth) return text;
+      const ellipsis = '...';
+      let low = 0;
+      let high = text.length;
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        const candidate = text.slice(0, mid).trimEnd() + ellipsis;
+        if (ctxToUse.measureText(candidate).width <= maxWidth) low = mid;
+        else high = mid - 1;
+      }
+      return text.slice(0, low).trimEnd() + ellipsis;
+    }
+
+    function splitLongWord(ctxToUse, word, maxWidth) {
+      const parts = [];
+      let current = '';
+      for (const char of word) {
+        const next = current + char;
+        if (current && ctxToUse.measureText(next).width > maxWidth) {
+          parts.push(current);
+          current = char;
+        } else {
+          current = next;
+        }
+      }
+      if (current) parts.push(current);
+      return parts;
+    }
+
+    function wrapText(ctxToUse, text, maxWidth, maxLines = Infinity) {
+      if (maxLines <= 0) return [];
+      if (!text) return [];
+      const normalized = text.replace(/\s+/g, ' ').trim();
+      if (!normalized) return [];
+
+      const words = normalized.split(' ');
+      const lines = [];
+      let line = '';
+
+      for (const word of words) {
+        const pieces = ctxToUse.measureText(word).width > maxWidth ? splitLongWord(ctxToUse, word, maxWidth) : [word];
+        for (const piece of pieces) {
+          const candidate = line ? `${line} ${piece}` : piece;
+          if (line && ctxToUse.measureText(candidate).width > maxWidth) {
+            lines.push(line);
+            line = piece;
+          } else {
+            line = candidate;
+          }
+        }
+      }
+
+      if (line) lines.push(line);
+      if (lines.length <= maxLines) return lines;
+
+      const trimmed = lines.slice(0, maxLines);
+      trimmed[trimmed.length - 1] = ellipsizeToWidth(ctxToUse, trimmed[trimmed.length - 1], maxWidth);
+      return trimmed;
+    }
+
+    function buildTextLayout(ctxToUse, state, rect, maxTitleLines = Infinity, maxOrgLines = Infinity) {
+      const nameWeight = 800;
+      const titleWeight = 600;
+      const orgWeight = 700;
+      const orgSize = Math.max(15, Math.round(state.titleSize * 0.76));
+
+      ctxToUse.font = fontSpec(state.nameSize, nameWeight);
+      const nameLine = ctxToUse.measureText(state.name).width <= rect.width ? state.name : ellipsizeToWidth(ctxToUse, state.name, rect.width);
+
+      ctxToUse.font = fontSpec(state.titleSize, titleWeight);
+      const titleLines = wrapText(ctxToUse, state.title, rect.width, maxTitleLines);
+
+      ctxToUse.font = fontSpec(orgSize, orgWeight);
+      const detailTexts = [state.org, ...state.extraInfo].filter(Boolean);
+      const orgLines = [];
+      for (const detail of detailTexts) {
+        if (orgLines.length >= maxOrgLines) break;
+        const remainingLines = maxOrgLines === Infinity ? Infinity : maxOrgLines - orgLines.length;
+        orgLines.push(...wrapText(ctxToUse, detail, rect.width, remainingLines));
+      }
+
+      const nameLineHeight = Math.round(state.nameSize * 1.06);
+      const titleLineHeight = Math.round(state.titleSize * 1.16);
+      const orgLineHeight = Math.round(orgSize * 1.18);
+      let totalHeight = nameLineHeight;
+
+      if (titleLines.length) totalHeight += state.lineSpacing + titleLineHeight * titleLines.length;
+      if (orgLines.length) totalHeight += Math.max(6, state.lineSpacing - 2) + orgLineHeight * orgLines.length;
+
+      return {
+        nameLine,
+        titleLines,
+        orgLines,
+        sizes: {
+          name: state.nameSize,
+          title: state.titleSize,
+          org: orgSize,
+          nameLineHeight,
+          titleLineHeight,
+          orgLineHeight,
+          nameWeight,
+          titleWeight,
+          orgWeight
+        },
+        totalHeight
+      };
+    }
+
+    // Text auto-fit: name, title, and organisation are measured against the
+    // safe text rectangle. Sizes are reduced first, then wrapped text is
+    // ellipsized only when there is no remaining vertical space.
+    function fitTextBlock(ctxToUse, baseState, rect) {
+      const minName = 22;
+      const minTitle = 14;
+      const minOrg = 12;
+      const state = { ...baseState };
+
+      for (let i = 0; i < 90; i += 1) {
+        const layout = buildTextLayout(ctxToUse, state, rect);
+        const nameTooWide = (() => {
+          ctxToUse.font = fontSpec(state.nameSize, layout.sizes.nameWeight);
+          return ctxToUse.measureText(state.name).width > rect.width;
+        })();
+
+        if (!nameTooWide && layout.totalHeight <= rect.height) {
+          return { state, layout };
+        }
+
+        let changed = false;
+        if (state.nameSize > minName) {
+          state.nameSize -= 1;
+          changed = true;
+        }
+        if (state.titleSize > minTitle) {
+          state.titleSize -= 1;
+          changed = true;
+        }
+        if (state.lineSpacing > 4) {
+          state.lineSpacing -= 1;
+          changed = true;
+        }
+        if (!changed) break;
+      }
+
+      const orgSize = Math.max(minOrg, Math.round(state.titleSize * 0.76));
+      const nameLineHeight = Math.round(state.nameSize * 1.06);
+      const titleLineHeight = Math.round(state.titleSize * 1.16);
+      const orgLineHeight = Math.round(orgSize * 1.18);
+      const hasDetails = Boolean(state.org || state.extraInfo.length);
+      let remaining = Math.max(0, rect.height - nameLineHeight);
+      let maxTitleLines = 0;
+      let maxOrgLines = 0;
+
+      if (state.title) {
+        const orgReserve = hasDetails && remaining > orgLineHeight + 8 ? orgLineHeight + 8 : 0;
+        const titleSpace = remaining - state.lineSpacing - orgReserve;
+        maxTitleLines = titleSpace >= titleLineHeight * 0.75 ? Math.max(1, Math.floor(titleSpace / titleLineHeight)) : 0;
+        remaining -= maxTitleLines ? state.lineSpacing + maxTitleLines * titleLineHeight : 0;
+      }
+
+      if (hasDetails) {
+        const orgSpacing = Math.max(6, state.lineSpacing - 2);
+        const orgSpace = remaining - orgSpacing;
+        maxOrgLines = orgSpace >= orgLineHeight * 0.75 ? Math.max(1, Math.floor(orgSpace / orgLineHeight)) : 0;
+      }
+      return { state, layout: buildTextLayout(ctxToUse, state, rect, maxTitleLines, maxOrgLines) };
+    }
+
+    function textXForAlignment(rect, align) {
+      if (align === 'left') return rect.x;
+      if (align === 'right') return rect.x + rect.width;
+      return rect.x + rect.width / 2;
+    }
+
+    function drawTextBlock(ctxToUse, state, rect) {
+      const fitted = fitTextBlock(ctxToUse, state, rect);
+      const layout = fitted.layout;
+      const fittedState = fitted.state;
+      const align = fittedState.align;
+      const x = textXForAlignment(rect, align);
+      let y = rect.y;
+
+      if (layout.totalHeight < rect.height && (state.layout === 'logoLeft' || state.layout === 'logoTopLeft' || state.layout === 'logoTop')) {
+        y = rect.y + (rect.height - layout.totalHeight) / 2;
+      }
+
+      ctxToUse.save();
+      ctxToUse.textAlign = align;
+      ctxToUse.textBaseline = 'top';
+
+      ctxToUse.fillStyle = '#000000';
+      ctxToUse.font = fontSpec(layout.sizes.name, layout.sizes.nameWeight);
+      ctxToUse.fillText(layout.nameLine, x, y);
+      y += layout.sizes.nameLineHeight;
+
+      if (layout.titleLines.length) {
+        y += fittedState.lineSpacing;
+        ctxToUse.fillStyle = '#000000';
+        ctxToUse.font = fontSpec(layout.sizes.title, layout.sizes.titleWeight);
+        for (const line of layout.titleLines) {
+          ctxToUse.fillText(line, x, y);
+          y += layout.sizes.titleLineHeight;
+        }
+      }
+
+      if (layout.orgLines.length) {
+        y += Math.max(6, fittedState.lineSpacing - 2);
+        ctxToUse.fillStyle = '#000000';
+        ctxToUse.font = fontSpec(layout.sizes.org, layout.sizes.orgWeight);
+        for (const line of layout.orgLines) {
+          ctxToUse.fillText(line, x, y);
+          y += layout.sizes.orgLineHeight;
+        }
+      }
+
+      ctxToUse.restore();
+    }
+
+    // Preview rendering: draw the badge design to an offscreen canvas, apply
+    // e-ink palette processing, then copy the exact 800 x 480 result to screen.
+    function renderBadge() {
+      const state = getState();
+      workCtx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      drawTheme(workCtx, state);
+
+      const layoutInfo = getLayoutInfo(state);
+      drawLogo(workCtx, state, layoutInfo);
+
+      const textRect = resolveTextRect(state, layoutInfo.available);
+      drawTextBlock(workCtx, state, textRect);
+      lastRenderRects = { logoRect: layoutInfo.logoRect, textRect };
+      els.canvas.classList.toggle('draggable', state.theme === 'freeStyle');
+
+      const displayImageData = prepareImageDataForDisplay(workCtx.getImageData(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT), state);
+      ctx.putImageData(displayImageData, 0, 0);
+
+      const payload = processImageData(displayImageData, state.displayMode);
+      els.payloadSize.textContent = `${labelForMode(state.displayMode)} payload: ${payload.length.toLocaleString()} bytes`;
+      return displayImageData;
+    }
+
+    function labelForMode(mode) {
+      if (mode === 'blackWhiteColor') return 'Black/white';
+      if (mode === 'threeColor') return 'Three-color';
+      if (mode === 'sixColor') return 'Six-color';
+      return 'Four-color';
+    }
+
+    // Canvas export and e-ink conversion: the visible canvas is already
+    // quantized to the selected palette, so PNG download and BLE upload match.
+    function prepareImageDataForDisplay(imageData, state = getState()) {
+      const clone = new ImageData(new Uint8ClampedArray(imageData.data), imageData.width, imageData.height);
+      if (state.processingMode === 'dither') {
+        ditherImage(clone, state.displayMode);
+      } else {
+        thresholdToPalette(clone, state.displayMode);
+      }
+      return clone;
+    }
+
+    function thresholdToPalette(imageData, mode) {
+      const data = imageData.data;
+      const palette = getPalette(mode);
+
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3] / 255;
+        const r = data[i] * alpha + 255 * (1 - alpha);
+        const g = data[i + 1] * alpha + 255 * (1 - alpha);
+        const b = data[i + 2] * alpha + 255 * (1 - alpha);
+        const closest = nearestPaletteColor(r, g, b, palette);
+        data[i] = closest.r;
+        data[i + 1] = closest.g;
+        data[i + 2] = closest.b;
+        data[i + 3] = 255;
+      }
+    }
+
+    // Reused e-paper image processing path from the original page, adapted to
+    // accept the selected palette explicitly and to keep four-color as default.
+    function ditherImage(imageData, mode) {
+      const data = imageData.data;
+      const width = imageData.width;
+      const height = imageData.height;
+      const palette = getPalette(mode);
+
+      function addError(pixelIndex, errR, errG, errB, factor) {
+        data[pixelIndex] = clamp(data[pixelIndex] + errR * factor, 0, 255);
+        data[pixelIndex + 1] = clamp(data[pixelIndex + 1] + errG * factor, 0, 255);
+        data[pixelIndex + 2] = clamp(data[pixelIndex + 2] + errB * factor, 0, 255);
+      }
+
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const index = (y * width + x) * 4;
+          const oldR = data[index];
+          const oldG = data[index + 1];
+          const oldB = data[index + 2];
+          const closest = nearestPaletteColor(oldR, oldG, oldB, palette);
+          const errR = oldR - closest.r;
+          const errG = oldG - closest.g;
+          const errB = oldB - closest.b;
+
+          data[index] = closest.r;
+          data[index + 1] = closest.g;
+          data[index + 2] = closest.b;
+          data[index + 3] = 255;
+
+          if (x + 1 < width) addError(index + 4, errR, errG, errB, 7 / 16);
+          if (y + 1 < height) {
+            if (x > 0) addError(index + (width - 1) * 4, errR, errG, errB, 3 / 16);
+            addError(index + width * 4, errR, errG, errB, 5 / 16);
+            if (x + 1 < width) addError(index + (width + 1) * 4, errR, errG, errB, 1 / 16);
+          }
+        }
+      }
+    }
+
+    function rgbToFourColorValue(r, g, b) {
+      if (r < 128 && g < 128 && b < 128) return 0x03;
+      if (r > 128 && g > 128 && b > 128) return 0x01;
+      if (r > 128 && g < 128 && b < 128) return 0x02;
+      if (r > 128 && g > 128 && b < 128) return 0x00;
+      const closest = nearestPaletteColor(r, g, b, getPalette('fourColor'));
+      if (closest === COLORS.black) return 0x03;
+      if (closest === COLORS.red) return 0x02;
+      if (closest === COLORS.yellow) return 0x00;
+      return 0x01;
+    }
+
+    function processImageData(imageData, mode = 'fourColor') {
+      const width = imageData.width;
+      const height = imageData.height;
+      const data = imageData.data;
+
+      if (mode === 'sixColor') {
+        const processedData = new Uint8Array(width * height);
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const index = (y * width + x) * 4;
+            const r = data[index];
+            const g = data[index + 1];
+            const b = data[index + 2];
+            const grayscale = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            const newIndex = (x * height) + (height - 1 - y);
+            processedData[newIndex] = grayscale;
+          }
+        }
+        return processedData;
+      }
+
+      if (mode === 'fourColor') {
+        const processedData = new Uint8Array(Math.ceil((width * height) / 4));
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const index = (y * width + x) * 4;
+            const grayValue = rgbToFourColorValue(data[index], data[index + 1], data[index + 2]);
+            const byteIndex = (y * width + x) / 4 | 0;
+            const shift = 6 - ((x % 4) * 2);
+            processedData[byteIndex] |= (grayValue << shift);
+          }
+        }
+        return processedData;
+      }
+
+      if (mode === 'blackWhiteColor') {
+        const byteWidth = Math.ceil(width / 8);
+        const processedData = new Uint8Array(byteWidth * height);
+        const threshold = 128;
+
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const index = (y * width + x) * 4;
+            const grayscale = Math.round(0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2]);
+            const bit = grayscale >= threshold ? 1 : 0;
+            const byteIndex = y * byteWidth + Math.floor(x / 8);
+            const bitIndex = 7 - (x % 8);
+            processedData[byteIndex] |= (bit << bitIndex);
+          }
+        }
+        return processedData;
+      }
+
+      if (mode === 'threeColor') {
+        const byteWidth = Math.ceil(width / 8);
+        const blackWhiteData = new Uint8Array(height * byteWidth);
+        const redWhiteData = new Uint8Array(height * byteWidth);
+        const blackWhiteThreshold = 140;
+        const redThreshold = 160;
+
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const index = (y * width + x) * 4;
+            const r = data[index];
+            const g = data[index + 1];
+            const b = data[index + 2];
+            const grayscale = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            const byteIndex = y * byteWidth + Math.floor(x / 8);
+            const bitIndex = 7 - (x % 8);
+
+            if (grayscale >= blackWhiteThreshold) {
+              blackWhiteData[byteIndex] |= (0x01 << bitIndex);
+            } else {
+              blackWhiteData[byteIndex] &= ~(0x01 << bitIndex);
+            }
+
+            if (r > redThreshold && r > g && r > b) {
+              redWhiteData[byteIndex] &= ~(0x01 << bitIndex);
+            } else {
+              redWhiteData[byteIndex] |= (0x01 << bitIndex);
+            }
+          }
+        }
+
+        const processedData = new Uint8Array(blackWhiteData.length + redWhiteData.length);
+        processedData.set(blackWhiteData, 0);
+        processedData.set(redWhiteData, blackWhiteData.length);
+        return processedData;
+      }
+
+      return new Uint8Array();
+    }
+
+    function downloadPNG() {
+      renderBadge();
+      els.canvas.toBlob((blob) => {
+        if (!blob) {
+          showToast('PNG export failed in this browser.', 'error');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'nametag-800x480.png';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    }
+
+    function updateConnectionLabel() {
+      if (connectedDevice && connectedCharacteristic) {
+        const deviceName = connectedDevice.name || 'selected display';
+        els.connectionStatus.classList.add('connected');
+        els.connectionLabel.textContent = `Connected: ${deviceName}`;
+        els.deviceLabel.textContent = `Target NameTag: ${deviceName}`;
+      } else {
+        els.connectionStatus.classList.remove('connected');
+        els.connectionLabel.textContent = 'Not connected';
+        els.deviceLabel.textContent = 'Target NameTag: not connected';
+      }
+    }
+
+    // BLE connection: preserves the original Web Bluetooth service and
+    // characteristic UUIDs used by the previous page.
+    async function connectBluetooth() {
+      if (!navigator.bluetooth) {
+        showToast('Web Bluetooth is unavailable. Use a modern Chromium-based browser on Android, desktop Chrome, or Edge.', 'error');
+        return;
+      }
+
+      try {
+        setProgress(0, 'Opening Bluetooth device picker...');
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [BLE_SERVICE_UUID] }]
+        });
+
+        setProgress(5, 'Connecting to GATT server...');
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+        const characteristic = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
+
+        if (!characteristic.properties.write && !characteristic.properties.writeWithoutResponse) {
+          throw new Error('The display characteristic does not support writing.');
+        }
+
+        connectedDevice = device;
+        connectedCharacteristic = characteristic;
+        connectedDevice.addEventListener('gattserverdisconnected', () => {
+          connectedDevice = null;
+          connectedCharacteristic = null;
+          updateConnectionLabel();
+          setProgress(0, 'Bluetooth disconnected.');
+        });
+
+        updateConnectionLabel();
+        setProgress(0, 'Bluetooth connected. Ready to upload.');
+        showToast(`Connected to ${device.name || 'NameTag'}.`, 'success');
+      } catch (error) {
+        connectedDevice = null;
+        connectedCharacteristic = null;
+        updateConnectionLabel();
+        setProgress(0, 'Bluetooth connection failed.');
+        showToast(`Bluetooth connection failed: ${error.message}`, 'error');
+      }
+    }
+
+    async function writeBleChunk(characteristic, chunk) {
+      if (characteristic.properties.write) {
+        await characteristic.writeValue(chunk);
+      } else if (characteristic.writeValueWithoutResponse) {
+        await characteristic.writeValueWithoutResponse(chunk);
+      } else {
+        await characteristic.writeValue(chunk);
+      }
+    }
+
+    // BLE upload integration: the generated 800 x 480 canvas is converted into
+    // the same packed byte array shape used by the original upload workflow,
+    // then sent in chunks through the connected characteristic.
+    async function uploadToDisplay() {
+      if (!connectedDevice || !connectedCharacteristic) {
+        showToast('Connect Bluetooth before uploading to the NameTag.', 'error');
+        return;
+      }
+
+      try {
+        const state = getState();
+        const imageData = renderBadge();
+        const payload = processImageData(imageData, state.displayMode);
+        const chunkSize = Number(els.chunkSize.value) || 512;
+        const totalBytes = payload.length;
+
+        if (!totalBytes) {
+          throw new Error('No display payload was generated.');
+        }
+
+        const deviceName = connectedDevice.name || 'selected display';
+        setProgress(0, `Uploading ${totalBytes.toLocaleString()} bytes to ${deviceName}...`);
+        els.uploadDisplay.disabled = true;
+        els.connectBluetooth.disabled = true;
+
+        for (let offset = 0; offset < totalBytes; offset += chunkSize) {
+          const chunk = payload.slice(offset, offset + chunkSize);
+          await writeBleChunk(connectedCharacteristic, chunk);
+          const sent = Math.min(offset + chunk.length, totalBytes);
+          const percent = Math.round((sent / totalBytes) * 100);
+          setProgress(percent, `Uploaded ${sent.toLocaleString()} / ${totalBytes.toLocaleString()} bytes to ${deviceName}.`);
+          await new Promise((resolve) => setTimeout(resolve, 4));
+        }
+
+        setProgress(100, `Upload complete for ${deviceName}.`);
+        showToast(`NameTag upload complete for ${deviceName}.`, 'success');
+      } catch (error) {
+        setProgress(0, 'Upload failed.');
+        showToast(`Upload failed: ${error.message}`, 'error');
+      } finally {
+        els.uploadDisplay.disabled = false;
+        els.connectBluetooth.disabled = false;
+      }
+    }
+
+    function renderTemplateCards() {
+      const radio = els.templateCards.querySelector(`input[value="${batchState.template}"]`);
+      if (radio) radio.checked = true;
+    }
+
+    function setBatchPreviewExpanded(expanded) {
+      batchPreviewExpanded = expanded;
+      const inBatch = !els.batchPanel.classList.contains('hidden');
+      els.previewPlaceholder.classList.toggle('hidden', !(inBatch && !expanded));
+      els.previewCollapse.classList.toggle('hidden', !(inBatch && expanded));
+      if (inBatch) els.previewPanel.classList.toggle('hidden', !expanded);
+    }
+
+    function setMode(mode, updateUrl = true) {
+      const isBatch = mode === 'batch';
+      els.singleTab.classList.toggle('active', !isBatch);
+      els.batchTab.classList.toggle('active', isBatch);
+      els.singlePanel.classList.toggle('hidden', isBatch);
+      els.batchPanel.classList.toggle('hidden', !isBatch);
+      if (isBatch) {
+        els.batchPreviewSlot.appendChild(els.previewPanel);
+        setBatchPreviewExpanded(batchPreviewExpanded);
+      } else {
+        els.singlePreviewAnchor.after(els.previewPanel);
+        els.previewPanel.classList.remove('hidden');
+        els.previewPlaceholder.classList.add('hidden');
+        els.previewCollapse.classList.add('hidden');
+        els.previewLabel.textContent = 'Previewing: Single NameTag';
+      }
+      if (updateUrl) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('mode', isBatch ? 'admin' : 'user');
+        history.replaceState(null, '', url);
+      }
+    }
+
+    function getSelectedChunkSize() {
+      return Number(els.chunkSize.value) || 512;
+    }
+
+    function getCurrentDisplayMode() {
+      return els.displayMode.value || 'fourColor';
+    }
+
+    function getBatchRowsForFilter() {
+      const filter = els.batchFilter.value;
+      let rows = [...batchState.rows];
+      if (filter === 'not_paired') rows = rows.filter((row) => getAssignedBadge(row) && row.bluetoothStatus !== 'connected');
+      if (filter === 'connected') rows = rows.filter((row) => row.bluetoothStatus === 'connected');
+      if (filter === 'waiting') rows = rows.filter((row) => row.uploadStatus === 'waiting');
+      if (filter === 'done') rows = rows.filter((row) => row.uploadStatus === 'done');
+      if (filter === 'failed') rows = rows.filter((row) => row.uploadStatus === 'failed');
+      return rows;
+    }
+
+    function saveBatchState() {
+      const rows = batchState.rows.map((row) => ({
+        id: row.id,
+        deviceName: getAssignedBadge(row),
+        assignedBadge: getAssignedBadge(row),
+        name: row.name,
+        title: row.title,
+        logoGroup: row.logoGroup,
+        extraInfo: row.extraInfo,
+        selected: row.selected,
+        bluetoothStatus: row.bluetoothStatus === 'connected' ? 'permission_granted' : row.bluetoothStatus,
+        uploadStatus: row.uploadStatus,
+        lastError: row.lastError,
+        lastUploadedAt: row.lastUploadedAt
+      }));
+      const assignments = {};
+      batchState.rows.forEach((row) => {
+        const badge = getAssignedBadge(row);
+        if (badge) assignments[badge] = row.id;
+      });
+      const logoGroups = {};
+      Object.entries(batchState.logoGroups).forEach(([key, group]) => {
+        logoGroups[key] = { name: group.name, dataUrl: group.dataUrl || null };
+      });
+      localStorage.setItem(BATCH_ROWS_KEY, JSON.stringify(rows));
+      localStorage.setItem(BATCH_ASSIGNMENTS_KEY, JSON.stringify(assignments));
+      localStorage.setItem(BATCH_LOGOS_KEY, JSON.stringify(logoGroups));
+      localStorage.setItem(BATCH_SETTINGS_KEY, JSON.stringify({
+        filter: els.batchFilter.value,
+        template: batchState.template
+      }));
+    }
+
+    function loadBatchState() {
+      try {
+        const storedLogos = JSON.parse(localStorage.getItem(BATCH_LOGOS_KEY) || localStorage.getItem(LEGACY_BATCH_LOGOS_KEY) || '{}');
+        Object.entries(storedLogos).forEach(([key, group]) => {
+          const name = String(group.name || key || '').trim();
+          if (!name || name === 'default') return; // legacy empty/default entry is dropped
+          batchState.logoGroups[name] = { name, dataUrl: group.dataUrl || null, image: null };
+        });
+      } catch {
+        batchState.logoGroups = {};
+      }
+
+      try {
+        const storedRows = JSON.parse(localStorage.getItem(BATCH_ROWS_KEY) || localStorage.getItem(LEGACY_BATCH_ROWS_KEY) || localStorage.getItem(LEGACY_BATCH_ROWS_KEY_2) || '[]');
+        batchState.rows = Array.isArray(storedRows) ? storedRows.map((row) => ({
+          id: row.id || createId(),
+          deviceName: normalizeDeviceName(row.assignedBadge || row.deviceName),
+          assignedBadge: normalizeDeviceName(row.assignedBadge || row.deviceName),
+          name: row.name || '',
+          title: row.title || '',
+          logoGroup: matchImportedOrg(batchState.logoGroups, (row.logoGroup && row.logoGroup !== 'default' ? row.logoGroup : '') || row.organisation || ''),
+          extraInfo: Array.isArray(row.extraInfo) ? row.extraInfo : [],
+          selected: row.selected !== false,
+          bluetoothStatus: 'not_connected',
+          uploadStatus: row.uploadStatus && !String(row.uploadStatus).startsWith('uploading') && row.uploadStatus !== 'rendering'
+            ? row.uploadStatus
+            : 'waiting',
+          lastError: row.lastError || '',
+          lastUploadedAt: row.lastUploadedAt || null
+        })) : [];
+      } catch {
+        batchState.rows = [];
+      }
+
+      try {
+        const settings = JSON.parse(localStorage.getItem(BATCH_SETTINGS_KEY) || localStorage.getItem(LEGACY_BATCH_SETTINGS_KEY) || '{}');
+        if (settings.filter) els.batchFilter.value = settings.filter;
+        if (settings.template) batchState.template = settings.template;
+        renderTemplateCards();
+      } catch {
+        // Ignore invalid saved settings.
+      }
+    }
+
+    function updateBatchSummary(current = 'idle') {
+      const total = batchState.rows.length;
+      const done = batchState.rows.filter((row) => row.uploadStatus === 'done').length;
+      els.batchProgress.textContent = `Progress: ${done} / ${total} uploaded`;
+      els.batchCurrent.textContent = `Current: ${current}`;
+    }
+
+    function logoUseCount(name) {
+      return batchState.rows.filter((row) => row.logoGroup === name).length;
+    }
+
+    // Organisation resolution (pure helpers — no DOM, unit-tested in
+    // tests/batch-logic.test.mjs). An organisation is a library entry
+    // { name, dataUrl, image }; dataUrl may be null (name-only org).
+    // An empty org reference means "None".
+    function resolveOrgEntry(orgs, name) {
+      if (!name) return null;
+      return orgs[name] || null;
+    }
+
+    function orgTextForRow(orgEntry) {
+      return orgEntry ? orgEntry.name : '';
+    }
+
+    function layoutForRow(orgEntry, template) {
+      return orgEntry && orgEntry.dataUrl ? template : 'textOnly';
+    }
+
+    function matchImportedOrg(orgs, rawName) {
+      const name = (rawName || '').trim();
+      return name && orgs[name] ? name : '';
+    }
+
+    function renderOrgLibrary() {
+      const names = Object.keys(batchState.logoGroups).sort();
+      if (!names.length) {
+        els.orgList.innerHTML = '<p class="hint">No organisations yet. Add one above, or leave people on "None" for text-only badges.</p>';
+        return;
+      }
+      els.orgList.innerHTML = names.map((name) => {
+        const org = batchState.logoGroups[name];
+        const used = logoUseCount(name);
+        const thumb = org.dataUrl
+          ? `<img src="${escapeHtml(org.dataUrl)}" alt="">`
+          : '<span class="org-chip-none">none</span>';
+        return `
+          <span class="org-chip" data-org="${escapeHtml(name)}">
+            ${thumb}
+            <input class="org-rename" type="text" value="${escapeHtml(name)}" data-org-rename="${escapeHtml(name)}" aria-label="Rename ${escapeHtml(name)}">
+            <span class="hint">${used} ${used === 1 ? 'person' : 'people'}</span>
+            <button class="btn danger" type="button" data-org-delete="${escapeHtml(name)}">Delete</button>
+          </span>`;
+      }).join('');
+    }
+
+    function batchConnectionLabel(row) {
+      const badgeName = getAssignedBadge(row);
+      if (!badgeName) return 'No NameTag assigned';
+      if (connectedBadges.has(badgeName) && row.bluetoothStatus === 'connected') return 'Ready';
+      return 'Not connected';
+    }
+
+    function renderBadgeAssignments() {
+      const assignedByBadge = new Map();
+      batchState.rows.forEach((row) => {
+        const badgeName = getAssignedBadge(row);
+        if (badgeName) assignedByBadge.set(badgeName, row);
+      });
+      els.badgeAssignmentList.innerHTML = getBadgeNames().map((badgeName) => {
+        const row = assignedByBadge.get(badgeName);
+        const connected = connectedBadges.has(badgeName);
+        const connectedLabel = connected ? 'Connected' : 'Not connected';
+        return `
+          <article class="badge-card${connected ? ' is-connected' : ''}">
+            <div class="badge-card-head">
+              <span class="badge-dot" aria-hidden="true"></span>
+              <strong>${badgeName}</strong>
+            </div>
+            <span>${row ? `assigned to ${escapeHtml(row.name || 'Unnamed person')}` : 'unused'}</span>
+            <span class="status-badge ${connected ? 'ok' : ''}">${connectedLabel}</span>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function updateUploadStats() {
+      const ready = batchState.rows.filter((row) => getAssignedBadge(row) && connectedBadges.has(getAssignedBadge(row)) && row.uploadStatus !== 'done').length;
+      const notConnected = batchState.rows.filter((row) => getAssignedBadge(row) && !connectedBadges.has(getAssignedBadge(row))).length;
+      const uploaded = batchState.rows.filter((row) => row.uploadStatus === 'done').length;
+      const failed = batchState.rows.filter((row) => row.uploadStatus === 'failed' || row.uploadStatus === 'skipped').length;
+      els.readyCount.textContent = ready;
+      els.notConnectedCount.textContent = notConnected;
+      els.uploadedCount.textContent = uploaded;
+      els.failedCount.textContent = failed;
+    }
+
+    function renderBatchTable() {
+      const rows = getBatchRowsForFilter();
+      if (!rows.length) {
+        els.batchTableBody.innerHTML = '<tr><td colspan="7">No people yet. Add organisations above, then add people here.</td></tr>';
+        updateBatchSummary();
+        renderOrgLibrary();
+        renderBadgeAssignments();
+        updateUploadStats();
+        saveBatchState();
+        return;
+      }
+
+      const orgOptions = ['', ...Object.keys(batchState.logoGroups).sort()];
+      els.batchTableBody.innerHTML = rows.map((row) => {
+        let uploadLabel = statusText(row.uploadStatus);
+        if (row.uploadStatus === 'failed' && row.lastError) uploadLabel = `Failed: ${row.lastError}`;
+        if (row.uploadStatus === 'skipped' && row.lastError) uploadLabel = row.lastError;
+        if (row.uploadStatus && String(row.uploadStatus).startsWith('uploading')) uploadLabel = row.uploadStatus;
+        const badgeName = getAssignedBadge(row);
+        const currentOrg = batchState.logoGroups[row.logoGroup] ? row.logoGroup : '';
+        return `
+          <tr data-row-id="${escapeHtml(row.id)}">
+            <td data-label="Select"><input type="checkbox" data-field="selected" ${row.selected ? 'checked' : ''} aria-label="Select ${escapeHtml(row.name || 'person')}"></td>
+            <td data-label="Name"><input type="text" data-field="name" value="${escapeHtml(row.name)}"></td>
+            <td data-label="Title / Posting"><input type="text" data-field="title" value="${escapeHtml(row.title)}"></td>
+            <td data-label="Organisation">
+              <select data-field="org">
+                ${orgOptions.map((name) => `<option value="${escapeHtml(name)}" ${name === currentOrg ? 'selected' : ''}>${name ? escapeHtml(name) : 'None'}</option>`).join('')}
+              </select>
+            </td>
+            <td data-label="Assigned NameTag">
+              <select data-field="assignedBadge">
+                ${['', ...getBadgeNames()].map((name) => `<option value="${escapeHtml(name)}" ${name === badgeName ? 'selected' : ''}>${name ? escapeHtml(name) : 'No NameTag assigned'}</option>`).join('')}
+              </select>
+            </td>
+            <td data-label="Status">
+              <span class="status-badge ${batchConnectionLabel(row) === 'Ready' ? 'ok' : ''}">${escapeHtml(batchConnectionLabel(row))}</span>
+              <span class="status-badge ${statusClass(row.uploadStatus)}">${escapeHtml(uploadLabel)}</span>
+            </td>
+            <td data-label="Actions">
+              <div class="row-actions">
+                <button class="btn" type="button" data-action="preview">Preview</button>
+                <button class="btn" type="button" data-action="duplicate">Duplicate</button>
+                <button class="btn danger" type="button" data-action="remove">Delete</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      els.batchSelectAll.checked = batchState.rows.length > 0 && batchState.rows.every((row) => row.selected);
+      updateBatchSummary();
+      renderOrgLibrary();
+      renderBadgeAssignments();
+      updateUploadStats();
+      saveBatchState();
+    }
+
+    function defaultOrgForNewRow() {
+      const names = Object.keys(batchState.logoGroups).sort();
+      return names[0] || '';
+    }
+
+    function createBatchRow(data = {}) {
+      const assignedBadge = normalizeDeviceName(data.assignedBadge || data.deviceName || data.device || nextAvailableBadge());
+      const orgRef = data.logoGroup !== undefined
+        ? matchImportedOrg(batchState.logoGroups, data.logoGroup)
+        : defaultOrgForNewRow();
+      return {
+        id: data.id || createId(),
+        deviceName: assignedBadge,
+        assignedBadge,
+        name: data.name || '',
+        title: data.title || '',
+        logoGroup: orgRef,
+        extraInfo: Array.isArray(data.extraInfo) ? data.extraInfo.filter(Boolean) : [],
+        selected: data.selected !== false,
+        bluetoothStatus: assignedBadge && connectedBadges.has(assignedBadge) ? 'connected' : 'not_connected',
+        uploadStatus: 'waiting',
+        lastError: '',
+        lastUploadedAt: null
+      };
+    }
+
+    function upsertBatchRowForDevice(deviceName) {
+      const normalized = normalizeDeviceName(deviceName);
+      let row = batchState.rows.find((item) => getAssignedBadge(item) === normalized);
+      if (!row) {
+        row = createBatchRow({ assignedBadge: normalized, name: normalized });
+        batchState.rows.push(row);
+      }
+      return row;
+    }
+
+    // CSV import: supports quoted fields, missing values, and extra info lines
+    // mapped from extra1, extra2, and extra3 into the existing badge renderer.
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+      for (let i = 0; i < text.length; i += 1) {
+        const char = text[i];
+        const next = text[i + 1];
+        if (char === '"' && inQuotes && next === '"') {
+          field += '"';
+          i += 1;
+        } else if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          row.push(field);
+          field = '';
+        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+          if (char === '\r' && next === '\n') i += 1;
+          row.push(field);
+          if (row.some((value) => value.trim())) rows.push(row);
+          row = [];
+          field = '';
+        } else {
+          field += char;
+        }
+      }
+      row.push(field);
+      if (row.some((value) => value.trim())) rows.push(row);
+      return rows;
+    }
+
+    function importCSVText(text) {
+      const parsed = parseCSV(text);
+      if (parsed.length < 2) {
+        showToast('CSV import found no data rows.', 'error');
+        return;
+      }
+      const headers = parsed[0].map((header) => header.trim());
+      const imported = parsed.slice(1).map((values) => {
+        const record = {};
+        headers.forEach((header, index) => {
+          record[header] = (values[index] || '').trim();
+        });
+        return createBatchRow({
+          assignedBadge: record.device,
+          name: record.name,
+          title: record.title,
+          logoGroup: record.organisation || '',
+          extraInfo: [record.extra1, record.extra2, record.extra3].filter(Boolean)
+        });
+      });
+      batchState.rows = imported;
+      renderBatchTable();
+      showToast(`Imported ${imported.length} people from CSV.`, 'success');
+    }
+
+    function downloadCSVTemplate() {
+      const lines = ['device,name,title,organisation,extra1,extra2,extra3'];
+      for (let i = 1; i <= 20; i += 1) {
+        const device = `BADGE${String(i).padStart(4, '0')}`;
+        lines.push(`${device},Name ${i},Title ${i},Organisation,,,`);
+      }
+      downloadTextFile('nametag-template.csv', `${lines.join('\n')}\n`, 'text/csv');
+    }
+
+    function exportBatchStatus() {
+      const header = 'device,name,title,organisation,selected,bluetoothStatus,uploadStatus,lastError,lastUploadedAt';
+      const lines = batchState.rows.map((row) => [
+        getAssignedBadge(row),
+        row.name,
+        row.title,
+        row.logoGroup,
+        row.selected,
+        row.bluetoothStatus,
+        row.uploadStatus,
+        row.lastError,
+        row.lastUploadedAt || ''
+      ].map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','));
+      downloadTextFile('nametag-upload-report.csv', `${header}\n${lines.join('\n')}\n`, 'text/csv');
+    }
+
+    function exportBatchCSV() {
+      const header = 'device,name,title,organisation,extra1,extra2,extra3';
+      const lines = batchState.rows.map((row) => [
+        getAssignedBadge(row),
+        row.name,
+        row.title,
+        row.logoGroup,
+        ...(row.extraInfo || []).slice(0, 3)
+      ].concat(['', '', '']).slice(0, 7)
+        .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','));
+      downloadTextFile('nametag-people.csv', `${header}\n${lines.join('\n')}\n`, 'text/csv');
+    }
+
+    function addPerson() {
+      const row = createBatchRow({});
+      batchState.rows.push(row);
+      renderBatchTable();
+      renderBadgeForBatchRow(row, { restore: false });
+      setMode('batch');
+      const nameInput = els.batchTableBody.querySelector(`tr[data-row-id="${row.id}"] input[data-field="name"]`);
+      if (nameInput) nameInput.focus();
+      showToast('Person added.', 'success');
+    }
+
+    function splitPastedLine(line) {
+      if (line.includes('|')) return line.split('|');
+      if (line.includes('\t')) return line.split('\t');
+      return line.split(',');
+    }
+
+    function parsePastedPeople(text) {
+      const used = new Set(batchState.rows.map(getAssignedBadge).filter(Boolean));
+      const dupes = [];
+      const rows = text.split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const parts = splitPastedLine(line).map((part) => part.trim());
+          let badge = '';
+          if (parts[3]) {
+            const candidate = normalizeDeviceName(parts[3]);
+            if (used.has(candidate)) dupes.push(candidate);
+            else { badge = candidate; used.add(candidate); }
+          }
+          if (!badge) {
+            badge = getBadgeNames().find((name) => !used.has(name)) || '';
+            if (badge) used.add(badge);
+          }
+          return createBatchRow({
+            name: parts[0] || '',
+            title: parts[1] || '',
+            logoGroup: parts[2] || '',
+            assignedBadge: badge
+          });
+        });
+      return { rows, dupes };
+    }
+
+    function renderPastePreview() {
+      const { rows, dupes } = parsePastedPeople(els.pasteInput.value);
+      if (!rows.length) {
+        els.pastePreview.innerHTML = '<p class="hint">Paste one person per line to preview parsed rows.</p>';
+        return { rows, dupes };
+      }
+      const dupeWarning = dupes.length
+        ? `<div class="status-badge fail paste-warning">Warning: duplicate NameTag ${dupes.join(', ')} — will auto-assign next available.</div>`
+        : '';
+      els.pastePreview.innerHTML = `
+        ${dupeWarning}
+        <table class="batch-table">
+          <thead><tr><th>Name</th><th>Title</th><th>Organisation</th><th>NameTag</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.name)}</td>
+                <td>${escapeHtml(row.title)}</td>
+                <td>${escapeHtml(row.logoGroup || 'None')}</td>
+                <td>${escapeHtml(getAssignedBadge(row) || 'No NameTag assigned')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      return { rows, dupes };
+    }
+
+    function openPasteDialog() {
+      els.pasteInput.value = '';
+      renderPastePreview();
+      if (typeof els.pasteDialog.showModal === 'function') els.pasteDialog.showModal();
+      else els.pasteDialog.removeAttribute('hidden');
+      els.pasteInput.focus();
+    }
+
+    function closePasteDialog() {
+      if (typeof els.pasteDialog.close === 'function') els.pasteDialog.close();
+      else els.pasteDialog.setAttribute('hidden', '');
+    }
+
+    function confirmPastePeople() {
+      const { rows } = renderPastePreview();
+      if (!rows.length) {
+        showToast('Paste at least one person.', 'error');
+        return;
+      }
+      batchState.rows.push(...rows);
+      rows.forEach((r) => { r.selected = true; });
+      closePasteDialog();
+      renderBatchTable();
+      if (rows[0]) renderBadgeForBatchRow(rows[0], { restore: false });
+      showToast(`Added ${rows.length} people.`, 'success');
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('The selected file could not be read.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function loadImageFromDataUrl(dataUrl) {
+      return new Promise((resolve, reject) => {
+        if (!dataUrl) {
+          resolve(null);
+          return;
+        }
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Stored logo could not be loaded.'));
+        img.src = dataUrl;
+      });
+    }
+
+    // Organisation storage: logos are kept as local data URLs in localStorage
+    // and revived into Image objects only inside this browser.
+    async function addOrUpdateOrg(name, dataUrl) {
+      const clean = (name || '').trim();
+      if (!clean) {
+        showToast('Enter an organisation name.', 'error');
+        return false;
+      }
+      const existing = batchState.logoGroups[clean];
+      const finalDataUrl = dataUrl !== undefined ? dataUrl : (existing ? existing.dataUrl : null);
+      const image = finalDataUrl ? await loadImageFromDataUrl(finalDataUrl) : null;
+      batchState.logoGroups[clean] = { name: clean, dataUrl: finalDataUrl, image };
+      renderBatchTable();
+      showToast(`Saved organisation ${clean}.`, 'success');
+      return true;
+    }
+
+    function deleteOrg(name) {
+      const org = batchState.logoGroups[name];
+      if (!org) return;
+      const used = logoUseCount(name);
+      if (used && !confirm(`This organisation is used by ${used} ${used === 1 ? 'person' : 'people'}. Delete anyway? They will become "None".`)) return;
+      delete batchState.logoGroups[name];
+      batchState.rows.forEach((row) => {
+        if (row.logoGroup === name) row.logoGroup = '';
+      });
+      renderBatchTable();
+      showToast(`Deleted ${name}.`, 'success');
+    }
+
+    function renameOrg(oldName, rawNewName) {
+      const newName = (rawNewName || '').trim();
+      if (!newName || newName === oldName) { renderBatchTable(); return; }
+      if (batchState.logoGroups[newName]) {
+        showToast(`Organisation ${newName} already exists.`, 'error');
+        renderBatchTable();
+        return;
+      }
+      const org = batchState.logoGroups[oldName];
+      if (!org) return;
+      delete batchState.logoGroups[oldName];
+      batchState.logoGroups[newName] = { ...org, name: newName };
+      batchState.rows.forEach((row) => {
+        if (row.logoGroup === oldName) row.logoGroup = newName;
+      });
+      renderBatchTable();
+      showToast(`Renamed to ${newName}.`, 'success');
+    }
+
+    async function addOrgFromFile(file) {
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        const name = els.orgNameInput.value.trim();
+        if (!name) {
+          showToast('Enter an organisation name before adding a logo.', 'error');
+          return;
+        }
+        const ok = await addOrUpdateOrg(name, dataUrl);
+        if (ok) { els.orgNameInput.value = ''; els.orgFile.value = ''; }
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
+    }
+
+    async function loadOrgImage(orgEntry) {
+      if (!orgEntry || !orgEntry.dataUrl) return null;
+      if (!orgEntry.image) orgEntry.image = await loadImageFromDataUrl(orgEntry.dataUrl);
+      return orgEntry.image || null;
+    }
+
+    function captureSingleFormState() {
+      return {
+        name: els.nameInput.value,
+        title: els.titleInput.value,
+        org: els.orgInput.value,
+        layout: els.layoutStyle.value,
+        align: getAlignment(),
+        theme: els.themeSelect.value,
+        extraInfo: Array.from(els.extraInfoList.querySelectorAll('input')).map((input) => input.value),
+        logoImage,
+        freeLogoPosition
+      };
+    }
+
+    function restoreSingleFormState(snapshot) {
+      els.nameInput.value = snapshot.name;
+      els.titleInput.value = snapshot.title;
+      els.orgInput.value = snapshot.org;
+      els.layoutStyle.value = snapshot.layout;
+      setAlignment(snapshot.align);
+      els.themeSelect.value = snapshot.theme;
+      els.extraInfoList.innerHTML = '';
+      snapshot.extraInfo.forEach((line) => addExtraInfoField(line, false));
+      logoImage = snapshot.logoImage;
+      freeLogoPosition = snapshot.freeLogoPosition;
+      updateRangeLabels();
+    }
+
+    // renderBadgeForBatchRow: temporarily injects one row into the existing
+    // single-badge form state, reuses the same renderer and palette processing,
+    // then restores the operator's form fields without duplicating pipeline code.
+    async function renderBadgeForBatchRow(row, options = {}) {
+      const snapshot = captureSingleFormState();
+      const badgeName = getAssignedBadge(row);
+      const orgEntry = resolveOrgEntry(batchState.logoGroups, row.logoGroup);
+      els.previewLabel.textContent = `Previewing: ${row.name || 'Unnamed person'}${badgeName ? ` → ${badgeName}` : ' → Select a person to preview'}`;
+      els.nameInput.value = row.name || badgeName || 'Badge Holder';
+      els.titleInput.value = row.title || '';
+      els.orgInput.value = orgTextForRow(orgEntry);
+      els.layoutStyle.value = layoutForRow(orgEntry, batchState.template);
+      setAlignment('center');
+      els.themeSelect.value = 'minimal';
+      els.extraInfoList.innerHTML = '';
+      row.extraInfo.forEach((line) => addExtraInfoField(line, false));
+      logoImage = await loadOrgImage(orgEntry);
+      const imageData = renderBadge();
+      if (options.restore !== false) restoreSingleFormState(snapshot);
+      return imageData;
+    }
+
+    async function connectDeviceObject(device) {
+      const server = await device.gatt.connect();
+      const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      const characteristic = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
+      if (!characteristic.properties.write && !characteristic.properties.writeWithoutResponse) {
+        throw new Error('The display characteristic does not support writing.');
+      }
+      return characteristic;
+    }
+
+    // Device registry: browser-permitted BADGE devices are tracked in memory by
+    // Bluetooth name. Device objects and characteristics are never serialized.
+    async function addBatchBadge() {
+      if (!navigator.bluetooth) {
+        showToast('Web Bluetooth is unavailable in this browser.', 'error');
+        return;
+      }
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'BADGE', services: [BLE_SERVICE_UUID] }]
+        });
+        const name = normalizeDeviceName(device.name || '');
+        const row = batchState.rows.find((item) => getAssignedBadge(item) === name);
+        if (row) {
+          row.bluetoothStatus = 'permission_granted';
+          row.uploadStatus = row.uploadStatus || 'waiting';
+          renderBatchTable();
+        }
+
+        const characteristic = await connectDeviceObject(device);
+        connectedBadges.set(name, {
+          device,
+          characteristic,
+          status: 'connected',
+          lastConnectedAt: new Date().toISOString(),
+          lastError: ''
+        });
+        device.addEventListener('gattserverdisconnected', () => {
+          const badge = connectedBadges.get(name);
+          if (badge) badge.status = 'disconnected';
+          const target = batchState.rows.find((item) => getAssignedBadge(item) === name);
+          if (target) target.bluetoothStatus = 'disconnected';
+          renderBatchTable();
+        });
+        if (row) {
+          row.bluetoothStatus = 'connected';
+          row.lastError = '';
+        }
+        renderBatchTable();
+        showToast(row ? `Connected ${name}.` : `${name} connected but not assigned. Choose a person in the people table.`, 'success');
+      } catch (error) {
+        showToast(`NameTag connection failed: ${error.message}`, 'error');
+      }
+    }
+
+    async function connectBatchBadge(row) {
+      if (!navigator.bluetooth) {
+        row.bluetoothStatus = 'unavailable';
+        row.lastError = 'Web Bluetooth unavailable';
+        renderBatchTable();
+        return;
+      }
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          filters: getAssignedBadge(row)
+            ? [{ name: getAssignedBadge(row), services: [BLE_SERVICE_UUID] }]
+            : [{ namePrefix: 'BADGE', services: [BLE_SERVICE_UUID] }]
+        });
+        const name = normalizeDeviceName(device.name || getAssignedBadge(row));
+        setAssignedBadge(row, name);
+        const characteristic = await connectDeviceObject(device);
+        connectedBadges.set(name, {
+          device,
+          characteristic,
+          status: 'connected',
+          lastConnectedAt: new Date().toISOString(),
+          lastError: ''
+        });
+        row.bluetoothStatus = 'connected';
+        row.lastError = '';
+        renderBatchTable();
+      } catch (error) {
+        row.bluetoothStatus = 'error';
+        row.lastError = error.message;
+        renderBatchTable();
+      }
+    }
+
+    // reconnectSavedBatchBadges: uses navigator.bluetooth.getDevices when the
+    // browser supports it, then reconnects previously permitted BADGE devices
+    // one by one without failing the whole operation.
+    async function reconnectSavedBatchBadges() {
+      if (!navigator.bluetooth || typeof navigator.bluetooth.getDevices !== 'function') {
+        showToast('This browser cannot list saved Bluetooth devices. Click Find / Add NameTag for each one.', 'error');
+        return;
+      }
+      const devices = await navigator.bluetooth.getDevices();
+      const badgeDevices = devices.filter((device) => normalizeDeviceName(device.name).startsWith('BADGE'));
+      if (!badgeDevices.length) {
+        showToast('No saved NameTag devices found. Add each NameTag once first.', 'error');
+        return;
+      }
+      for (const device of badgeDevices) {
+        const name = normalizeDeviceName(device.name);
+        const row = batchState.rows.find((item) => getAssignedBadge(item) === name);
+        try {
+          if (row) row.bluetoothStatus = 'permission_granted';
+          renderBatchTable();
+          const characteristic = await connectDeviceObject(device);
+          connectedBadges.set(name, {
+            device,
+            characteristic,
+            status: 'connected',
+            lastConnectedAt: new Date().toISOString(),
+            lastError: ''
+          });
+          if (row) {
+            row.bluetoothStatus = 'connected';
+            row.lastError = '';
+          }
+        } catch (error) {
+          if (row) {
+            row.bluetoothStatus = 'error';
+            row.lastError = error.message;
+          }
+        }
+        renderBatchTable();
+        await new Promise((resolve) => setTimeout(resolve, 60));
+      }
+      showToast('Reconnect NameTags complete.', 'success');
+    }
+
+    async function uploadPayloadToCharacteristic(characteristic, payload, options = {}) {
+      const chunkSize = options.chunkSize || getSelectedChunkSize();
+      const total = payload.length;
+      for (let offset = 0; offset < total; offset += chunkSize) {
+        const chunk = payload.slice(offset, offset + chunkSize);
+        await writeBleChunk(characteristic, chunk);
+        const sent = Math.min(offset + chunk.length, total);
+        if (options.onProgress) options.onProgress(sent, total);
+        await new Promise((resolve) => setTimeout(resolve, 4));
+      }
+    }
+
+    async function uploadBatchRow(row) {
+      const badgeName = getAssignedBadge(row);
+      const badge = connectedBadges.get(badgeName);
+      if (!badgeName) {
+        row.uploadStatus = 'skipped';
+        row.lastError = 'No NameTag assigned';
+        return;
+      }
+      if (!badge || !badge.characteristic || badge.status === 'disconnected') {
+        row.uploadStatus = 'skipped';
+        row.lastError = 'Not connected';
+        return;
+      }
+
+      row.uploadStatus = 'rendering';
+      row.lastError = '';
+      renderBatchTable();
+      const imageData = await renderBadgeForBatchRow(row, { restore: true });
+      const payload = processImageData(imageData, getCurrentDisplayMode());
+
+      row.uploadStatus = 'uploading';
+      renderBatchTable();
+      await uploadPayloadToCharacteristic(badge.characteristic, payload, {
+        chunkSize: getSelectedChunkSize(),
+        onProgress: (sent, total) => {
+          const percent = Math.round((sent / total) * 100);
+          row.uploadStatus = `uploading ${percent}%`;
+          updateBatchSummary(`${badgeName} — ${row.name || 'Unnamed person'}, ${percent}%`);
+          renderBatchTable();
+        }
+      });
+
+      row.uploadStatus = 'done';
+      row.lastUploadedAt = new Date().toISOString();
+      row.lastError = '';
+    }
+
+    // Batch upload queue: uploads sequentially for BLE reliability, updates UI
+    // between badges, and continues after individual row failures.
+    let uploadBarTimer = null;
+    function setUploadBar(state) {
+      if (uploadBarTimer) {
+        clearTimeout(uploadBarTimer);
+        uploadBarTimer = null;
+      }
+      if (state.done) {
+        els.uploadBarLabel.textContent = `Finished: ${state.ok} uploaded${state.failed ? `, ${state.failed} failed` : ''}`;
+        els.uploadBarFill.style.width = '100%';
+        els.uploadBar.classList.remove('hidden');
+        uploadBarTimer = setTimeout(() => els.uploadBar.classList.add('hidden'), 1800);
+        return;
+      }
+      if (!state.active) {
+        els.uploadBar.classList.add('hidden');
+        return;
+      }
+      const pct = state.total ? Math.round((state.index / state.total) * 100) : 0;
+      els.uploadBarLabel.textContent = `Uploading ${state.index} / ${state.total}${state.label ? ` — ${state.label}` : ''}`;
+      els.uploadBarFill.style.width = `${pct}%`;
+      els.uploadBar.classList.remove('hidden');
+    }
+
+    async function runBatchUploadQueue(rows, requireSelected = true) {
+      if (batchUploadRunning) {
+        showToast('Batch upload is already running.', 'error');
+        return;
+      }
+      const uploadableRows = rows.filter((row) => !requireSelected || row.selected);
+      if (!uploadableRows.length) {
+        showToast('Nothing ready to upload.', 'error');
+        return;
+      }
+      batchUploadRunning = true;
+      let index = 0;
+      setUploadBar({ active: true, index: 0, total: uploadableRows.length, label: 'starting…' });
+      try {
+        for (const row of rows) {
+          if (requireSelected && !row.selected) continue;
+          index += 1;
+          const badgeName = getAssignedBadge(row) || 'unassigned badge';
+          updateBatchSummary(`Uploading ${index} of ${uploadableRows.length}: ${badgeName} — ${row.name || 'Unnamed person'}`);
+          setUploadBar({ active: true, index, total: uploadableRows.length, label: badgeName });
+          try {
+            await uploadBatchRow(row);
+          } catch (error) {
+            row.uploadStatus = 'failed';
+            row.lastError = error.message;
+          }
+          renderBatchTable();
+          await new Promise((resolve) => setTimeout(resolve, 80));
+        }
+        updateBatchSummary('idle');
+      } finally {
+        batchUploadRunning = false;
+        const ok = uploadableRows.filter((row) => row.uploadStatus === 'done').length;
+        const failed = uploadableRows.filter((row) => row.uploadStatus === 'failed' || row.uploadStatus === 'skipped').length;
+        setUploadBar({ done: true, ok, failed });
+        renderBatchTable();
+      }
+    }
+
+    function uploadSelectedBatchRows() {
+      runBatchUploadQueue(batchState.rows.filter((row) => row.selected), true);
+    }
+
+    function uploadAllReadyBatchRows() {
+      runBatchUploadQueue(batchState.rows.filter((row) => connectedBadges.has(getAssignedBadge(row))), false);
+    }
+
+    function retryFailedBatchRows() {
+      batchState.rows
+        .filter((row) => row.uploadStatus === 'failed' || row.uploadStatus === 'skipped')
+        .forEach((row) => {
+          row.selected = true;
+          row.uploadStatus = 'waiting';
+          row.lastError = '';
+        });
+      runBatchUploadQueue(batchState.rows.filter((row) => row.selected), true);
+    }
+
+    function canvasPoint(event) {
+      const rect = els.canvas.getBoundingClientRect();
+      return {
+        x: (event.clientX - rect.left) * (CANVAS_WIDTH / rect.width),
+        y: (event.clientY - rect.top) * (CANVAS_HEIGHT / rect.height)
+      };
+    }
+
+    function pointInRect(point, rect) {
+      return rect &&
+        point.x >= rect.x &&
+        point.x <= rect.x + rect.width &&
+        point.y >= rect.y &&
+        point.y <= rect.y + rect.height;
+    }
+
+    function setSliderValue(input, value) {
+      input.value = String(Math.round(clamp(value, Number(input.min), Number(input.max))));
+    }
+
+    function startCanvasDrag(event) {
+      const state = getState();
+      if (state.theme !== 'freeStyle') return;
+
+      const point = canvasPoint(event);
+      const target = pointInRect(point, lastRenderRects.logoRect) ? 'logo' :
+        pointInRect(point, lastRenderRects.textRect) ? 'text' : null;
+
+      if (!target) return;
+
+      event.preventDefault();
+      els.canvas.setPointerCapture(event.pointerId);
+      els.canvas.classList.add('dragging');
+
+      dragState = {
+        target,
+        pointerId: event.pointerId,
+        startPoint: point,
+        startTextX: Number(els.textX.value),
+        startTextY: Number(els.textY.value),
+        startLogo: lastRenderRects.logoRect ? { x: lastRenderRects.logoRect.x, y: lastRenderRects.logoRect.y } : null
+      };
+    }
+
+    function moveCanvasDrag(event) {
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+
+      const point = canvasPoint(event);
+      const dx = point.x - dragState.startPoint.x;
+      const dy = point.y - dragState.startPoint.y;
+
+      if (dragState.target === 'text') {
+        setSliderValue(els.textX, dragState.startTextX + dx);
+        setSliderValue(els.textY, dragState.startTextY + dy);
+      } else if (dragState.target === 'logo' && dragState.startLogo) {
+        const size = Number(els.logoSize.value);
+        freeLogoPosition = {
+          x: clamp(dragState.startLogo.x + dx, SAFE_MARGIN, CANVAS_WIDTH - SAFE_MARGIN - size),
+          y: clamp(dragState.startLogo.y + dy, SAFE_MARGIN, CANVAS_HEIGHT - SAFE_MARGIN - size)
+        };
+      }
+
+      queueRender();
+    }
+
+    function endCanvasDrag(event) {
+      if (!dragState || dragState.pointerId !== event.pointerId) return;
+      els.canvas.classList.remove('dragging');
+      dragState = null;
+    }
+
+    function resetForm() {
+      els.nameInput.value = initialValues.name;
+      els.titleInput.value = initialValues.title;
+      els.orgInput.value = initialValues.org;
+      els.layoutStyle.value = initialValues.layout;
+      els.themeSelect.value = initialValues.theme;
+      els.logoSize.value = initialValues.logoSize;
+      els.nameSize.value = initialValues.nameSize;
+      els.titleSize.value = initialValues.titleSize;
+      els.lineSpacing.value = initialValues.lineSpacing;
+      els.textX.value = initialValues.textX;
+      els.textY.value = initialValues.textY;
+      els.borderToggle.checked = initialValues.border;
+      els.displayMode.value = 'fourColor';
+      els.processingMode.value = initialValues.processingMode;
+      els.chunkSize.value = initialValues.chunkSize;
+      setAlignment(initialValues.align);
+      logoImage = null;
+      freeLogoPosition = null;
+      els.extraInfoList.innerHTML = '';
+      setProgress(0, 'Ready.');
+      queueRender();
+      showToast('NameTag reset.', 'success');
+    }
+
+    function attachEvents() {
+      const liveInputs = [
+        els.nameInput,
+        els.titleInput,
+        els.orgInput,
+        els.layoutStyle,
+        els.themeSelect,
+        els.logoSize,
+        els.nameSize,
+        els.titleSize,
+        els.lineSpacing,
+        els.textX,
+        els.textY,
+        els.borderToggle,
+        els.displayMode,
+        els.processingMode
+      ];
+
+      liveInputs.forEach((el) => {
+        el.addEventListener('input', queueRender);
+        el.addEventListener('change', queueRender);
+      });
+
+      document.querySelectorAll('input[name="align"]').forEach((radio) => {
+        radio.addEventListener('change', queueRender);
+      });
+
+      els.logoInput.addEventListener('change', handleImageUpload);
+      els.addExtraInfo.addEventListener('click', () => addExtraInfoField());
+      els.clearLogo.addEventListener('click', () => {
+        logoImage = null;
+        freeLogoPosition = null;
+        queueRender();
+      });
+
+      els.generatePreview.addEventListener('click', () => {
+        renderBadge();
+        showToast('Preview regenerated.', 'success');
+      });
+      els.downloadPng.addEventListener('click', downloadPNG);
+      els.connectBluetooth.addEventListener('click', connectBluetooth);
+      els.uploadDisplay.addEventListener('click', uploadToDisplay);
+      els.resetForm.addEventListener('click', resetForm);
+      els.canvas.addEventListener('pointerdown', startCanvasDrag);
+      els.canvas.addEventListener('pointermove', moveCanvasDrag);
+      els.canvas.addEventListener('pointerup', endCanvasDrag);
+      els.canvas.addEventListener('pointercancel', endCanvasDrag);
+
+      els.singleTab.addEventListener('click', () => setMode('single'));
+      els.batchTab.addEventListener('click', () => setMode('batch'));
+      els.addPerson.addEventListener('click', addPerson);
+      els.pasteNames.addEventListener('click', openPasteDialog);
+      els.pasteInput.addEventListener('input', renderPastePreview);
+      els.confirmPaste.addEventListener('click', confirmPastePeople);
+      els.cancelPaste.addEventListener('click', closePasteDialog);
+      els.importCsv.addEventListener('click', () => els.batchCsvInput.click());
+      els.batchCsvInput.addEventListener('change', () => {
+        const file = els.batchCsvInput.files && els.batchCsvInput.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => importCSVText(String(reader.result || ''));
+        reader.onerror = () => showToast('CSV file could not be read.', 'error');
+        reader.readAsText(file);
+        els.batchCsvInput.value = '';
+      });
+      els.exportCsv.addEventListener('click', exportBatchCSV);
+      els.downloadTemplate.addEventListener('click', downloadCSVTemplate);
+      els.templateCards.addEventListener('change', (event) => {
+        if (!event.target.matches('input[name="batch-template"]')) return;
+        batchState.template = event.target.value;
+        saveBatchState();
+        if (batchPreviewExpanded) {
+          const row = batchState.rows.find((item) => item.selected) || batchState.rows[0];
+          if (row) renderBadgeForBatchRow(row, { restore: false });
+        }
+      });
+      els.addOrg.addEventListener('click', async () => {
+        const ok = await addOrUpdateOrg(els.orgNameInput.value, undefined);
+        if (ok) els.orgNameInput.value = '';
+      });
+      els.orgDropzone.addEventListener('click', () => els.orgFile.click());
+      els.orgFile.addEventListener('change', () => {
+        const file = els.orgFile.files && els.orgFile.files[0];
+        if (file) addOrgFromFile(file);
+      });
+      els.orgDropzone.addEventListener('dragover', (e) => { e.preventDefault(); els.orgDropzone.classList.add('dragover'); });
+      els.orgDropzone.addEventListener('dragleave', () => els.orgDropzone.classList.remove('dragover'));
+      els.orgDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        els.orgDropzone.classList.remove('dragover');
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) addOrgFromFile(file);
+      });
+      document.addEventListener('paste', (e) => {
+        if (els.batchPanel.classList.contains('hidden')) return;
+        const item = [...(e.clipboardData?.items || [])].find((it) => it.type.startsWith('image/'));
+        if (item) { const file = item.getAsFile(); if (file) addOrgFromFile(file); }
+      });
+      els.orgList.addEventListener('click', (e) => {
+        const del = e.target.closest('[data-org-delete]');
+        if (del) deleteOrg(del.getAttribute('data-org-delete'));
+      });
+      els.orgList.addEventListener('change', (e) => {
+        const rename = e.target.closest('[data-org-rename]');
+        if (rename) renameOrg(rename.getAttribute('data-org-rename'), rename.value);
+      });
+      els.addBatchBadge.addEventListener('click', addBatchBadge);
+      els.reconnectBadges.addEventListener('click', reconnectSavedBatchBadges);
+      els.previewPlaceholder.addEventListener('click', async () => {
+        const row = batchState.rows.find((item) => item.selected) || batchState.rows[0];
+        if (!row) {
+          showToast('Add a person first.', 'error');
+          return;
+        }
+        setBatchPreviewExpanded(true);
+        await renderBadgeForBatchRow(row, { restore: false });
+      });
+      els.previewCollapse.addEventListener('click', () => setBatchPreviewExpanded(false));
+      els.previewSelected.addEventListener('click', async () => {
+        const row = batchState.rows.find((item) => item.selected) || batchState.rows[0];
+        if (!row) {
+          showToast('Select a person to preview.', 'error');
+          return;
+        }
+        setBatchPreviewExpanded(true);
+        await renderBadgeForBatchRow(row, { restore: false });
+        showToast(`Previewing ${row.name || 'selected person'}.`, 'success');
+      });
+      els.uploadSelected.addEventListener('click', uploadSelectedBatchRows);
+      els.uploadAllReady.addEventListener('click', uploadAllReadyBatchRows);
+      els.retryFailed.addEventListener('click', retryFailedBatchRows);
+      els.exportStatus.addEventListener('click', exportBatchStatus);
+      els.clearBatch.addEventListener('click', () => {
+        if (!confirm('Clear all people? Organisations will remain saved.')) return;
+        batchState.rows = [];
+        renderBatchTable();
+        showToast('People cleared.', 'success');
+      });
+      els.batchFilter.addEventListener('change', renderBatchTable);
+      els.batchSelectAll.addEventListener('change', () => {
+        batchState.rows.forEach((row) => { row.selected = els.batchSelectAll.checked; });
+        renderBatchTable();
+      });
+      const updateBatchRowFromField = async (event) => {
+        const rowEl = event.target.closest('tr[data-row-id]');
+        if (!rowEl) return;
+        const row = batchState.rows.find((item) => item.id === rowEl.dataset.rowId);
+        if (!row) return;
+        const field = event.target.dataset.field;
+        if (!field) return;
+        if (field === 'selected') {
+          row.selected = event.target.checked;
+        } else if (field === 'assignedBadge') {
+          setAssignedBadge(row, event.target.value);
+        } else if (field === 'org') {
+          row.logoGroup = event.target.value;
+        } else {
+          row[field] = event.target.value;
+        }
+        row.uploadStatus = row.uploadStatus === 'done' ? 'waiting' : row.uploadStatus;
+        if (row.selected && batchPreviewExpanded) await renderBadgeForBatchRow(row, { restore: false });
+        renderBadgeAssignments();
+        updateUploadStats();
+        saveBatchState();
+      };
+      els.batchTableBody.addEventListener('input', updateBatchRowFromField);
+      els.batchTableBody.addEventListener('change', updateBatchRowFromField);
+      els.batchTableBody.addEventListener('click', async (event) => {
+        const action = event.target.dataset.action;
+        if (!action) return;
+        const rowEl = event.target.closest('tr[data-row-id]');
+        const row = rowEl ? batchState.rows.find((item) => item.id === rowEl.dataset.rowId) : null;
+        if (!row) return;
+        if (action === 'preview') {
+          setBatchPreviewExpanded(true);
+          await renderBadgeForBatchRow(row, { restore: false });
+          row.selected = true;
+          renderBatchTable();
+          showToast(`Previewing ${row.name || getAssignedBadge(row) || 'person'}.`, 'success');
+        }
+        if (action === 'retry') {
+          row.selected = true;
+          row.uploadStatus = 'waiting';
+          row.lastError = '';
+          await runBatchUploadQueue([row], false);
+        }
+        if (action === 'duplicate') {
+          batchState.rows.push(createBatchRow({
+            assignedBadge: nextAvailableBadge(),
+            name: row.name,
+            title: row.title,
+            logoGroup: row.logoGroup,
+            extraInfo: [...row.extraInfo]
+          }));
+          renderBatchTable();
+        }
+        if (action === 'remove') {
+          batchState.rows = batchState.rows.filter((item) => item.id !== row.id);
+          renderBatchTable();
+        }
+      });
+    }
+
+    attachEvents();
+    loadBatchState();
+    updateRangeLabels();
+    updateConnectionLabel();
+    renderBadge();
+    renderBatchTable();
+    const requestedMode = new URLSearchParams(window.location.search).get('mode');
+    const deviceDefaultMode = window.innerWidth >= 768 ? 'batch' : 'single';
+    const startupMode = requestedMode === 'admin' ? 'batch'
+      : requestedMode === 'user' ? 'single'
+      : deviceDefaultMode;
+    setMode(startupMode, false);
+  </script>
+</body>
+</html>
