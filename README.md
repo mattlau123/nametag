@@ -1,4 +1,4 @@
-# NameTag Manager — User Guide
+# NameTag Manager v1.1 — User Guide
 
 A simple guide for creating and updating the e-ink name displays.
 No technical knowledge needed.
@@ -31,7 +31,7 @@ You will also need:
 
 - The **e-ink name displays**, switched on and nearby (within about one metre
   while sending).
-- The **NameTag Manager** file (one file, e.g. `nametag.html`).
+- The **NameTag Manager** file (one file, e.g. `nametag_v1.1.html`).
 
 > **Tip:** The simplest, most reliable set-up is a computer or an Android phone
 > with the **Chrome** browser. Everything in this guide works the same way on
@@ -77,8 +77,10 @@ The tool is one file. Opening it is like opening a document.
    which display you are holding; this is how you pick the right one when
    sending.
 3. Just before you connect a display, you will **press its reset button** once
-   (see Section 7, Step 2). This is what makes the display show up in the
-   connection list.
+   (see Section 7, Step 2). This makes it show up in the connection list, and
+   keeps its Bluetooth on for about **10 minutes** — after that the display
+   sleeps to save battery (the name stays on screen). Press reset again to
+   reconnect.
 
 ---
 
@@ -89,15 +91,23 @@ Use this when you just need a single tag.
 1. At the top of the screen, tap **Single NameTag**.
 2. Fill in the boxes: **Name**, **Title / Posting**, and
    **Organisation / Company**.
-3. *(Optional)* Add a logo under **Logo image**, and adjust **Logo size** if you
-   want it bigger or smaller.
+3. *(Optional)* Add a logo: **drag a picture onto the logo box**, **paste** one
+   (Ctrl/⌘+V), or **click the box** to choose a file. Adjust **Logo size** if you
+   want it bigger or smaller. To remove a logo, add a different one.
 4. Choose a **NameTag layout** — this decides where the logo and text sit:
    *Logo top, text below*; *Logo left, text right*; *Logo top-left, text center*;
    or *Text only* (no logo).
-5. The **preview** shows exactly what the display will show. Long names shrink
+5. *(Optional)* Fine-tune the look with the switches:
+   - **Swap Title / Organisation** — puts the organisation line above the title.
+   - **Red accent line** — turn this **off** for a plain look with no red bar
+     under the text (it is on by default).
+6. The **preview** shows exactly what the display will show. Long names shrink
    automatically so they always fit.
-6. To send it to a display, follow **Section 7**.
-7. *(Optional)* **Download PNG** saves a picture of the tag to your device.
+7. To send it to a display, follow **Section 7**.
+8. *(Optional)* **Save as batch template** stores this exact design — layout,
+   sizes, swap, and red-line choice — so you can reuse it for a whole batch. It
+   then appears as the **★ Custom** card in Batch mode (see Section 6, Step 4).
+9. *(Optional)* **Download PNG** saves a picture of the tag to your device.
    **Reset** clears the form to start again.
 
 ---
@@ -139,8 +149,12 @@ Decide which physical display each person gets.
 3. *(If a display drops out)* tap **Reconnect NameTags**.
 
 ### Step 4 — Preview & Upload
-1. Choose a **Badge template** by tapping one of the three picture cards. This
-   layout applies to **everyone** in the batch.
+1. Choose a **Badge template** by tapping one of the picture cards. This layout
+   applies to **everyone** in the batch. There are four choices:
+   - The three built-in layouts (*Logo top*, *Logo left*, *Logo top-left*).
+   - **★ Custom** — the design you saved in Single mode with **Save as batch
+     template**. This card stays greyed out until you have saved one. To change
+     it, tap **Edit custom in Single mode →**, adjust the design, and save again.
 2. Tap **Preview** on any person’s row to check how their tag looks.
 3. When your displays are connected and assigned, tap **Upload All Ready** to
    send to all of them at once. A **progress bar appears at the bottom of the
@@ -193,9 +207,11 @@ This is the same idea in both Single and Batch mode.
 
 1. Make sure the display has **power — connect it to its battery.** (A flat
    battery is the most common reason a display will not appear.)
-2. **Press the reset button on the display once.** This wakes it up so it can be
-   found. Only after a reset will its name (for example **BADGE0001**) appear in
-   the connection list.
+2. **Press the reset button on the display once.** Only after a reset will its
+   name (for example **BADGE0001**) appear in the connection list. Bluetooth then
+   stays on for about **10 minutes**, so do your uploads within that window. After
+   10 minutes the display sleeps to save battery (the name stays on screen) — just
+   press reset again to reconnect.
 
 **Then connect and send:**
 
@@ -209,8 +225,9 @@ This is the same idea in both Single and Batch mode.
 7. It takes a few seconds. The display’s screen refreshes and the new name tag
    appears. Done!
 
-> You connect each display **once** per session. If a display disconnects or does
-> not appear, **press its reset button again**, then tap **Connect Bluetooth**
+> Each reset gives you about **10 minutes** of Bluetooth. If a display
+> disconnects, doesn't appear, or its 10 minutes have passed (it sleeps to save
+> battery), **press its reset button again**, then tap **Connect Bluetooth**
 > (Single) or **Reconnect NameTags** (Batch).
 
 ---
@@ -228,6 +245,9 @@ This is the same idea in both Single and Batch mode.
 - **Switch modes any time** using **Single NameTag** / **Batch NameTags** at the
   top.
 - **No logo is fine.** Tags without a logo show neat, centred text.
+- **Displays save battery on their own.** Bluetooth switches off about 10 minutes
+  after a reset, and the name stays on screen — so a charged display lasts a long
+  time. Just press reset when you need to update it again.
 
 ---
 
@@ -236,7 +256,7 @@ This is the same idea in both Single and Batch mode.
 | What you see | What to do |
 |---|---|
 | “Bluetooth is unavailable” or you can’t connect | Use **Chrome** (Android) or **Chrome/Edge** on a computer. An iPhone’s Safari cannot send to displays. |
-| The display isn’t in the connect list | Check it has **battery/power**, **press its reset button** once, then tap **Find / Add NameTag** (or **Connect Bluetooth**) again. |
+| The display isn’t in the connect list | Check it has **battery/power**, and remember Bluetooth only stays on ~10 min per reset. **Press its reset button** once, then tap **Find / Add NameTag** (or **Connect Bluetooth**) again. |
 | You tapped **Upload All Ready** but nothing happens | Check the displays are **connected** and **assigned** to people. Only connected, assigned tags are sent. |
 | The wrong display updated | Check the **BADGE number** you picked matches the label on the display. |
 | Text looks small on a long name | That is normal — it shrinks to fit. Use a shorter title if you want it larger. |
