@@ -602,6 +602,11 @@
       box-shadow: 0 0 0 2px var(--focus-ring);
     }
 
+    .template-card.is-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .template-card:focus-within {
       border-color: var(--blue);
     }
@@ -1450,7 +1455,10 @@
             </div>
             <div class="field">
               <label for="logo-input">Logo image</label>
-              <input id="logo-input" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/*">
+              <div class="logo-dropzone" id="single-logo-dropzone" tabindex="0" role="button" aria-label="Add a logo by dropping, pasting, or clicking">
+                Drag &amp; drop, paste, or click to add a logo
+                <input class="hidden" id="logo-input" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/*">
+              </div>
               <span class="hint">PNG, JPG, SVG, or another browser-supported image.</span>
             </div>
             <button class="btn" id="clear-logo" type="button">Clear Logo</button>
@@ -1551,6 +1559,21 @@
               </span>
               <input id="border-toggle" type="checkbox" checked>
             </label>
+            <label class="switch-row" for="swap-title-org">
+              <span>
+                <span class="label">Swap Title / Organisation</span><br>
+                <span class="hint">Put the organisation above the title on the badge.</span>
+              </span>
+              <input id="swap-title-org" type="checkbox">
+            </label>
+            <label class="switch-row" for="red-line-toggle">
+              <span>
+                <span class="label">Red accent line</span><br>
+                <span class="hint">The red bar under the text. Turn off for a plain look.</span>
+              </span>
+              <input id="red-line-toggle" type="checkbox" checked>
+            </label>
+            <button class="btn primary" id="save-template" type="button">Save as batch template</button>
           </div>
         </section>
 
@@ -1650,7 +1673,17 @@
                 </svg>
                 <span>Logo top-left</span>
               </label>
+              <label class="template-card">
+                <input type="radio" name="batch-template" value="custom">
+                <svg class="template-svg" viewBox="0 0 80 48" aria-hidden="true">
+                  <text x="40" y="20" text-anchor="middle" font-size="14" font-weight="800" fill="#155eef">★</text>
+                  <line x1="24" y1="32" x2="56" y2="32"></line>
+                  <line x1="28" y1="39" x2="52" y2="39"></line>
+                </svg>
+                <span>Custom</span>
+              </label>
             </div>
+            <button class="btn" id="edit-template" type="button">Edit custom in Single mode →</button>
           </div>
 
           <section class="stack" aria-label="Organisations">
@@ -1836,6 +1869,7 @@
       titleInput: document.getElementById('title-input'),
       orgInput: document.getElementById('org-input'),
       logoInput: document.getElementById('logo-input'),
+      singleLogoDropzone: document.getElementById('single-logo-dropzone'),
       addExtraInfo: document.getElementById('add-extra-info'),
       extraInfoList: document.getElementById('extra-info-list'),
       clearLogo: document.getElementById('clear-logo'),
@@ -1848,6 +1882,9 @@
       textX: document.getElementById('text-x'),
       textY: document.getElementById('text-y'),
       borderToggle: document.getElementById('border-toggle'),
+      swapTitleOrg: document.getElementById('swap-title-org'),
+      redLineToggle: document.getElementById('red-line-toggle'),
+      saveTemplate: document.getElementById('save-template'),
       displayMode: document.getElementById('display-mode'),
       processingMode: document.getElementById('processing-mode'),
       chunkSize: document.getElementById('chunk-size'),
@@ -1895,6 +1932,7 @@
       batchProgress: document.getElementById('batch-progress'),
       batchCurrent: document.getElementById('batch-current'),
       templateCards: document.getElementById('template-cards'),
+      editTemplate: document.getElementById('edit-template'),
       batchTableBody: document.getElementById('batch-table-body'),
       badgeAssignmentList: document.getElementById('badge-assignment-list'),
       readyCount: document.getElementById('ready-count'),
@@ -1945,6 +1983,7 @@
     const batchState = {
       rows: [],
       template: 'logoTop',
+      customTemplate: null,
       logoGroups: {},
       devices: connectedBadges
     };
@@ -1962,6 +2001,8 @@
       textX: els.textX.value,
       textY: els.textY.value,
       border: els.borderToggle.checked,
+      swap: els.swapTitleOrg.checked,
+      redLine: els.redLineToggle.checked,
       displayMode: els.displayMode.value,
       processingMode: els.processingMode.value,
       chunkSize: els.chunkSize.value,
@@ -2107,7 +2148,7 @@
     }
 
     function getState() {
-      return {
+      const state = {
         name: els.nameInput.value.trim() || 'Your Name',
         title: els.titleInput.value.trim(),
         org: els.orgInput.value.trim(),
@@ -2124,9 +2165,12 @@
         textX: Number(els.textX.value),
         textY: Number(els.textY.value),
         showBorder: els.borderToggle.checked,
+        showRedLine: els.redLineToggle.checked,
+        swapTitleOrg: els.swapTitleOrg.checked,
         displayMode: els.displayMode.value,
         processingMode: els.processingMode.value
       };
+      return applyTitleOrgSwap(state);
     }
 
     function fillRect(ctxToUse, x, y, width, height, color) {
@@ -2144,7 +2188,9 @@
 
     function drawTheme(ctxToUse, state) {
       fillRect(ctxToUse, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, '#ffffff');
-      fillRect(ctxToUse, SAFE_MARGIN, CANVAS_HEIGHT - 54, CANVAS_WIDTH - SAFE_MARGIN * 2, 4, '#ff0000');
+      if (state.showRedLine) {
+        fillRect(ctxToUse, SAFE_MARGIN, CANVAS_HEIGHT - 54, CANVAS_WIDTH - SAFE_MARGIN * 2, 4, '#ff0000');
+      }
 
       if (state.showBorder) {
         strokeRect(ctxToUse, 10, 10, CANVAS_WIDTH - 20, CANVAS_HEIGHT - 20, '#000000', 3);
@@ -2167,10 +2213,8 @@
 
     // Logo handling: images are loaded as local data URLs and drawn into the
     // generated badge canvas. No image leaves the browser before BLE upload.
-    async function handleImageUpload(event) {
-      const file = event.target.files && event.target.files[0];
+    async function loadLogoFile(file) {
       if (!file) return;
-
       try {
         const img = await makeImageFromFile(file);
         logoImage = img;
@@ -2178,9 +2222,12 @@
         queueRender();
       } catch (error) {
         showToast(error.message, 'error');
-      } finally {
-        event.target.value = '';
       }
+    }
+
+    async function handleImageUpload(event) {
+      await loadLogoFile(event.target.files && event.target.files[0]);
+      event.target.value = '';
     }
 
     function addExtraInfoField(value = '', focusField = true) {
@@ -2917,6 +2964,17 @@
     }
 
     function renderTemplateCards() {
+      const hasCustom = !!batchState.customTemplate;
+      const customRadio = els.templateCards.querySelector('input[value="custom"]');
+      if (customRadio) {
+        customRadio.disabled = !hasCustom;
+        const card = customRadio.closest('.template-card');
+        if (card) {
+          card.classList.toggle('is-disabled', !hasCustom);
+          card.title = hasCustom ? '' : 'Design one in Single mode, then Save';
+        }
+      }
+      if (batchState.template === 'custom' && !hasCustom) batchState.template = 'logoTop';
       const radio = els.templateCards.querySelector(`input[value="${batchState.template}"]`);
       if (radio) radio.checked = true;
     }
@@ -3000,7 +3058,8 @@
       localStorage.setItem(BATCH_LOGOS_KEY, JSON.stringify(logoGroups));
       localStorage.setItem(BATCH_SETTINGS_KEY, JSON.stringify({
         filter: els.batchFilter.value,
-        template: batchState.template
+        template: batchState.template,
+        customTemplate: batchState.customTemplate
       }));
     }
 
@@ -3042,6 +3101,7 @@
         const settings = JSON.parse(localStorage.getItem(BATCH_SETTINGS_KEY) || localStorage.getItem(LEGACY_BATCH_SETTINGS_KEY) || '{}');
         if (settings.filter) els.batchFilter.value = settings.filter;
         if (settings.template) batchState.template = settings.template;
+        if (settings.customTemplate) batchState.customTemplate = settings.customTemplate;
         renderTemplateCards();
       } catch {
         // Ignore invalid saved settings.
@@ -3079,6 +3139,15 @@
     function matchImportedOrg(orgs, rawName) {
       const name = (rawName || '').trim();
       return name && orgs[name] ? name : '';
+    }
+
+    function applyTitleOrgSwap(state) {
+      if (state.swapTitleOrg) {
+        const t = state.title;
+        state.title = state.org;
+        state.org = t;
+      }
+      return state;
     }
 
     function renderOrgLibrary() {
@@ -3526,6 +3595,23 @@
       return orgEntry.image || null;
     }
 
+    function captureTemplateDesign() {
+      return {
+        layout: els.layoutStyle.value,
+        align: getAlignment(),
+        theme: els.themeSelect.value,
+        logoSize: Number(els.logoSize.value),
+        nameSize: Number(els.nameSize.value),
+        titleSize: Number(els.titleSize.value),
+        lineSpacing: Number(els.lineSpacing.value),
+        textX: Number(els.textX.value),
+        textY: Number(els.textY.value),
+        showBorder: els.borderToggle.checked,
+        showRedLine: els.redLineToggle.checked,
+        swapTitleOrg: els.swapTitleOrg.checked
+      };
+    }
+
     function captureSingleFormState() {
       return {
         name: els.nameInput.value,
@@ -3534,6 +3620,15 @@
         layout: els.layoutStyle.value,
         align: getAlignment(),
         theme: els.themeSelect.value,
+        logoSize: els.logoSize.value,
+        nameSize: els.nameSize.value,
+        titleSize: els.titleSize.value,
+        lineSpacing: els.lineSpacing.value,
+        textX: els.textX.value,
+        textY: els.textY.value,
+        showBorder: els.borderToggle.checked,
+        showRedLine: els.redLineToggle.checked,
+        swapTitleOrg: els.swapTitleOrg.checked,
         extraInfo: Array.from(els.extraInfoList.querySelectorAll('input')).map((input) => input.value),
         logoImage,
         freeLogoPosition
@@ -3547,6 +3642,15 @@
       els.layoutStyle.value = snapshot.layout;
       setAlignment(snapshot.align);
       els.themeSelect.value = snapshot.theme;
+      els.logoSize.value = snapshot.logoSize;
+      els.nameSize.value = snapshot.nameSize;
+      els.titleSize.value = snapshot.titleSize;
+      els.lineSpacing.value = snapshot.lineSpacing;
+      els.textX.value = snapshot.textX;
+      els.textY.value = snapshot.textY;
+      els.borderToggle.checked = snapshot.showBorder;
+      els.redLineToggle.checked = snapshot.showRedLine;
+      els.swapTitleOrg.checked = snapshot.swapTitleOrg;
       els.extraInfoList.innerHTML = '';
       snapshot.extraInfo.forEach((line) => addExtraInfoField(line, false));
       logoImage = snapshot.logoImage;
@@ -3565,9 +3669,25 @@
       els.nameInput.value = row.name || badgeName || 'Badge Holder';
       els.titleInput.value = row.title || '';
       els.orgInput.value = orgTextForRow(orgEntry);
-      els.layoutStyle.value = layoutForRow(orgEntry, batchState.template);
-      setAlignment('center');
+      const tpl = (batchState.template === 'custom' && batchState.customTemplate) ? batchState.customTemplate : null;
+      els.layoutStyle.value = layoutForRow(orgEntry, tpl ? tpl.layout : batchState.template);
       els.themeSelect.value = 'minimal';
+      if (tpl) {
+        setAlignment(tpl.align);
+        els.logoSize.value = tpl.logoSize;
+        els.nameSize.value = tpl.nameSize;
+        els.titleSize.value = tpl.titleSize;
+        els.lineSpacing.value = tpl.lineSpacing;
+        els.textX.value = tpl.textX;
+        els.textY.value = tpl.textY;
+        els.borderToggle.checked = tpl.showBorder;
+        els.redLineToggle.checked = tpl.showRedLine;
+        els.swapTitleOrg.checked = tpl.swapTitleOrg;
+      } else {
+        setAlignment('center');
+        els.redLineToggle.checked = true;
+        els.swapTitleOrg.checked = false;
+      }
       els.extraInfoList.innerHTML = '';
       row.extraInfo.forEach((line) => addExtraInfoField(line, false));
       logoImage = await loadOrgImage(orgEntry);
@@ -3924,6 +4044,8 @@
       els.textX.value = initialValues.textX;
       els.textY.value = initialValues.textY;
       els.borderToggle.checked = initialValues.border;
+      els.swapTitleOrg.checked = initialValues.swap;
+      els.redLineToggle.checked = initialValues.redLine;
       els.displayMode.value = 'fourColor';
       els.processingMode.value = initialValues.processingMode;
       els.chunkSize.value = initialValues.chunkSize;
@@ -3950,6 +4072,8 @@
         els.textX,
         els.textY,
         els.borderToggle,
+        els.swapTitleOrg,
+        els.redLineToggle,
         els.displayMode,
         els.processingMode
       ];
@@ -3963,7 +4087,27 @@
         radio.addEventListener('change', queueRender);
       });
 
+      els.saveTemplate.addEventListener('click', () => {
+        batchState.customTemplate = captureTemplateDesign();
+        saveBatchState();
+        renderTemplateCards();
+        showToast('Custom template saved. Pick "Custom" in Batch mode.', 'success');
+      });
       els.logoInput.addEventListener('change', handleImageUpload);
+      els.singleLogoDropzone.addEventListener('click', () => els.logoInput.click());
+      els.singleLogoDropzone.addEventListener('dragover', (e) => { e.preventDefault(); els.singleLogoDropzone.classList.add('dragover'); });
+      els.singleLogoDropzone.addEventListener('dragleave', () => els.singleLogoDropzone.classList.remove('dragover'));
+      els.singleLogoDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        els.singleLogoDropzone.classList.remove('dragover');
+        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) loadLogoFile(file);
+      });
+      document.addEventListener('paste', (e) => {
+        if (els.singlePanel.classList.contains('hidden')) return;
+        const item = [...(e.clipboardData?.items || [])].find((it) => it.type.startsWith('image/'));
+        if (item) { const file = item.getAsFile(); if (file) loadLogoFile(file); }
+      });
       els.addExtraInfo.addEventListener('click', () => addExtraInfoField());
       els.clearLogo.addEventListener('click', () => {
         logoImage = null;
@@ -4011,6 +4155,27 @@
           const row = batchState.rows.find((item) => item.selected) || batchState.rows[0];
           if (row) renderBadgeForBatchRow(row, { restore: false });
         }
+      });
+      els.editTemplate.addEventListener('click', () => {
+        const t = batchState.customTemplate;
+        if (t) {
+          els.layoutStyle.value = t.layout;
+          setAlignment(t.align);
+          els.themeSelect.value = t.theme || 'minimal';
+          els.logoSize.value = t.logoSize;
+          els.nameSize.value = t.nameSize;
+          els.titleSize.value = t.titleSize;
+          els.lineSpacing.value = t.lineSpacing;
+          els.textX.value = t.textX;
+          els.textY.value = t.textY;
+          els.borderToggle.checked = t.showBorder;
+          els.redLineToggle.checked = t.showRedLine;
+          els.swapTitleOrg.checked = t.swapTitleOrg;
+          updateRangeLabels();
+        }
+        setMode('single');
+        renderBadge();
+        showToast('Adjust the design, then tap "Save as batch template".', 'success');
       });
       els.addOrg.addEventListener('click', async () => {
         const ok = await addOrUpdateOrg(els.orgNameInput.value, undefined);
